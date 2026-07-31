@@ -304,9 +304,8 @@ with tab_clima:
                             df_sat['humidity'] = (num / den) * 100.0
                             df_sat['humidity'] = df_sat['humidity'].clip(upper=100.0)
                             
-                            df_sat['datetime'] = pd.to_datetime(df_sat['id'].str[:13], format='%Y%m%dT%H%M', errors='coerce')
-                            if df_sat['datetime'].isnull().all():
-                                 df_sat['datetime'] = pd.to_datetime(pd.to_numeric(df_sat['time']), unit='ms')
+                            # Usar el timestamp en milisegundos directamente (es lo más seguro y exacto)
+                            df_sat['datetime'] = pd.to_datetime(pd.to_numeric(df_sat['time']), unit='ms')
 
                             df_out = df_sat[['datetime', 'rain_mm', 'temp_c', 'humidity', 'soil_moisture_percent']].copy()
                             df_out.columns = ['DATETIME', 'RAIN_MM', 'TEMPERATURE_C', 'HUMIDITY_PERCENT', 'SOIL_MOISTURE_PERCENT']
