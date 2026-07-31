@@ -224,7 +224,7 @@ with tab_clima:
 
                     if "TerraClimate" in fuente:
                         st.info("ℹ️ Descargando de **TerraClimate (IDAHO_EPSCOR)**. Resolución: ~4km.")
-                        coleccion = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE').select(['pr', 'tmmx', 'tmmn', 'vap']).filterBounds(punto).filterDate(start_str, end_str)
+                        coleccion = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE').select(['pr', 'tmmx', 'tmmn', 'vap', 'soil']).filterBounds(punto).filterDate(start_str, end_str)
                         info = coleccion.getRegion(punto, 4000).getInfo()
                         
                         if len(info) > 1:
@@ -233,6 +233,7 @@ with tab_clima:
                             df_sat['tmmx'] = pd.to_numeric(df_sat['tmmx']) * 0.1
                             df_sat['tmmn'] = pd.to_numeric(df_sat['tmmn']) * 0.1
                             df_sat['vap'] = pd.to_numeric(df_sat['vap']) * 0.001
+                            df_sat['soil'] = pd.to_numeric(df_sat['soil']) * 0.1
                             df_sat['tmean'] = (df_sat['tmmx'] + df_sat['tmmn']) / 2
                             es = 0.6108 * np.exp((17.27 * df_sat['tmean']) / (df_sat['tmean'] + 237.3))
                             df_sat['humidity'] = (df_sat['vap'] / es) * 100
@@ -240,8 +241,8 @@ with tab_clima:
                             
                             df_sat['Fecha'] = pd.to_datetime(df_sat['id'].str[0:4] + '-' + df_sat['id'].str[4:6] + '-01')
                             
-                            df_out = df_sat[['Fecha', 'pr', 'tmean', 'humidity']].copy()
-                            df_out.columns = ['DATETIME', 'RAIN_MM', 'TEMPERATURE_C', 'HUMIDITY_PERCENT']
+                            df_out = df_sat[['Fecha', 'pr', 'tmean', 'humidity', 'soil']].copy()
+                            df_out.columns = ['DATETIME', 'RAIN_MM', 'TEMPERATURE_C', 'HUMIDITY_PERCENT', 'SOIL_MOISTURE_MM']
                             
                             st.dataframe(df_out, use_container_width=True)
                             
@@ -272,7 +273,7 @@ with tab_clima:
                         progress_bar = st.progress(0)
 
                         for i, (chunk_start, chunk_end) in enumerate(date_chunks):
-                            coleccion = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').select(['temperature_2m', 'dewpoint_temperature_2m', 'total_precipitation']).filterBounds(punto).filterDate(chunk_start, chunk_end)
+                            coleccion = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').select(['temperature_2m', 'dewpoint_temperature_2m', 'total_precipitation', 'volumetric_soil_water_layer_1']).filterBounds(punto).filterDate(chunk_start, chunk_end)
                             try:
                                 info = coleccion.getRegion(punto, 9000).getInfo()
                                 if len(info) > 1:
@@ -292,10 +293,12 @@ with tab_clima:
                             df_sat['total_precipitation'] = pd.to_numeric(df_sat['total_precipitation'])
                             df_sat['temperature_2m'] = pd.to_numeric(df_sat['temperature_2m'])
                             df_sat['dewpoint_temperature_2m'] = pd.to_numeric(df_sat['dewpoint_temperature_2m'])
+                            df_sat['volumetric_soil_water_layer_1'] = pd.to_numeric(df_sat['volumetric_soil_water_layer_1'])
                             
                             df_sat['temp_c'] = df_sat['temperature_2m'] - 273.15
                             df_sat['dew_c'] = df_sat['dewpoint_temperature_2m'] - 273.15
                             df_sat['rain_mm'] = df_sat['total_precipitation'] * 1000.0
+                            df_sat['soil_moisture_percent'] = df_sat['volumetric_soil_water_layer_1'] * 100.0
                             
                             num = np.exp((17.625 * df_sat['dew_c']) / (243.04 + df_sat['dew_c']))
                             den = np.exp((17.625 * df_sat['temp_c']) / (243.04 + df_sat['temp_c']))
@@ -306,8 +309,8 @@ with tab_clima:
                             if df_sat['datetime'].isnull().all():
                                  df_sat['datetime'] = pd.to_datetime(pd.to_numeric(df_sat['time']), unit='ms')
 
-                            df_out = df_sat[['datetime', 'rain_mm', 'temp_c', 'humidity']].copy()
-                            df_out.columns = ['DATETIME', 'RAIN_MM', 'TEMPERATURE_C', 'HUMIDITY_PERCENT']
+                            df_out = df_sat[['datetime', 'rain_mm', 'temp_c', 'humidity', 'soil_moisture_percent']].copy()
+                            df_out.columns = ['DATETIME', 'RAIN_MM', 'TEMPERATURE_C', 'HUMIDITY_PERCENT', 'SOIL_MOISTURE_PERCENT']
                             
                             st.dataframe(df_out, use_container_width=True)
 
