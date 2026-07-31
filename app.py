@@ -52,7 +52,8 @@ def init_gee():
             else:
                 key_dict = dict(secret_val)
             credentials = service_account.Credentials.from_service_account_info(key_dict)
-            ee.Initialize(credentials, project=key_dict.get('project_id'))
+            scoped_credentials = credentials.with_scopes(['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform'])
+            ee.Initialize(scoped_credentials, project=key_dict.get('project_id'))
         else:
             ee.Initialize()
         return True
