@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+DATA_FENOLOGIA_2010_2017.xlsx
