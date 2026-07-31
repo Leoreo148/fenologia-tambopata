@@ -24,7 +24,6 @@ st.markdown("""
 <style>
     [data-testid="stSidebar"] { background-color: #1a2e1a; }
     [data-testid="stSidebar"] * { color: #d4e6d4 !important; }
-    .block-container { padding-top: 1.5rem; }
     [data-testid="metric-container"] {
         background-color: #f0f7f0; border: 1px solid #c3dfc3; border-radius: 10px; padding: 12px;
     }
