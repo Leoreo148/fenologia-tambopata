@@ -257,12 +257,38 @@ with tab_clima:
                             st.warning("No se encontraron datos para estas fechas.")
 
                     else:
-                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~9km. ¡Esto procesa miles de registros!")
-                        coleccion = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').select(['temperature_2m', 'dewpoint_temperature_2m', 'total_precipitation']).filterBounds(punto).filterDate(start_str, end_str)
-                        info = coleccion.getRegion(punto, 9000).getInfo()
+                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~9km. ¡Descargando por partes (mes a mes) para no saturar la memoria!...")
+                        
+                        date_chunks = []
+                        current = pd.to_datetime(in_start)
+                        end_date = pd.to_datetime(in_end)
+                        while current < end_date:
+                            next_date = min(current + pd.Timedelta(days=30), end_date)
+                            date_chunks.append((current.strftime("%Y-%m-%d"), next_date.strftime("%Y-%m-%d")))
+                            current = next_date
 
-                        if len(info) > 1:
-                            df_sat = pd.DataFrame(info[1:], columns=info[0])
+                        all_data = []
+                        header = None
+                        progress_bar = st.progress(0)
+
+                        for i, (chunk_start, chunk_end) in enumerate(date_chunks):
+                            coleccion = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').select(['temperature_2m', 'dewpoint_temperature_2m', 'total_precipitation']).filterBounds(punto).filterDate(chunk_start, chunk_end)
+                            try:
+                                info = coleccion.getRegion(punto, 9000).getInfo()
+                                if len(info) > 1:
+                                    if header is None:
+                                        header = info[0]
+                                    all_data.extend(info[1:])
+                            except Exception as e_chunk:
+                                st.warning(f"Omitiendo fechas {chunk_start} a {chunk_end} por límite de memoria.")
+                            progress_bar.progress((i + 1) / len(date_chunks))
+                        
+                        progress_bar.empty()
+
+                        if all_data:
+                            df_sat = pd.DataFrame(all_data, columns=header)
+                            df_sat = df_sat.drop_duplicates(subset=['id'])
+                            
                             df_sat['total_precipitation'] = pd.to_numeric(df_sat['total_precipitation'])
                             df_sat['temperature_2m'] = pd.to_numeric(df_sat['temperature_2m'])
                             df_sat['dewpoint_temperature_2m'] = pd.to_numeric(df_sat['dewpoint_temperature_2m'])
