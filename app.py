@@ -92,6 +92,11 @@ def load_data():
     df['Fecha']       = pd.to_datetime(
         df['YEAR'].astype(str) + '-' + df['MONTH'].astype(str).str.zfill(2) + '-01'
     )
+    # Llenar nulos para evitar 'undefined' en tablas y gráficos
+    cols_categoricas = ['Rol_Agroforestal', 'GENERO_limpio', 'Nombre científico', 'FAMILY', 'HABITAT']
+    for col in cols_categoricas:
+        if col in df.columns:
+            df[col] = df[col].fillna('Desconocido')
     return df
 
 df_original = load_data()
@@ -104,7 +109,7 @@ st.markdown("""
   <h1>🦜 Fenología Forestal en la Reserva Nacional de Tambopata</h1>
   <p>
     Base de datos fenológica histórica <strong>2010–2017</strong> · Proyecto <strong>Macaw Society</strong><br>
-    Seguimiento mensual de especies forestales clave para la alimentación de guacamayos y su potencial en sistemas <strong>agroforestales sintrópicos</strong>.
+    Seguimiento mensual de especies forestales clave para la alimentación de guacamayos en 'colpa colorado' y su potencial en sistemas <strong>agroforestales sintrópicos</strong>.
   </p>
 </div>
 """, unsafe_allow_html=True)
@@ -112,14 +117,17 @@ st.markdown("""
 # ─────────────────────────────────────────────────────────────────────
 # SIDEBAR – FILTROS
 # ─────────────────────────────────────────────────────────────────────
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Scarlet_Macaw_Ara_macao_-on_palm_nut-8.jpg/320px-Scarlet_Macaw_Ara_macao_-on_palm_nut-8.jpg",
-                 caption="Guacamayo en Tambopata", use_container_width=True)
 st.sidebar.title("🔬 Filtros de Análisis")
 
 # Filtro por año
 anios = sorted(df_original['YEAR'].unique().tolist())
 anio_sel = st.sidebar.multiselect("📅 Año (vacío = todos)", anios)
 df = df_original[df_original['YEAR'].isin(anio_sel)] if anio_sel else df_original.copy()
+
+# Filtro por Zona (Habitat)
+zonas = sorted(df['HABITAT'].dropna().unique().tolist())
+zona_sel = st.sidebar.multiselect("📍 Zona (Hábitat)", zonas, default=zonas)
+df = df[df['HABITAT'].isin(zona_sel)] if zona_sel else df.copy()
 
 # Filtro por Rol
 roles = df['Rol_Agroforestal'].unique().tolist()
@@ -217,7 +225,7 @@ st.markdown("---")
 # SECCIÓN 3 – HEATMAP FENOLÓGICO (visión de artículo científico)
 # ─────────────────────────────────────────────────────────────────────
 st.subheader("🗓️ Calendario Fenológico (Heatmap por Género)")
-st.caption("Vista de 'Figura Científica': intensidad de la variable por género y mes. Ideal para incluir en el artículo.")
+st.caption("Vista de 'Figura Científica': intensidad de la variable por género y mes.")
 
 df_heat = df_f.groupby(['GENERO_limpio', 'MONTH'])[metrica_col].mean().reset_index()
 df_heat['Mes'] = df_heat['MONTH'].map(MESES)
