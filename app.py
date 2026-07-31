@@ -57,6 +57,7 @@ def init_gee():
             ee.Initialize()
         return True
     except Exception as e:
+        st.error(f"Error inicializando Google Earth Engine: {e}")
         return False
 
 gee_is_ready = init_gee()
