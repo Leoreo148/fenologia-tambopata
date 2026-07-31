@@ -124,10 +124,10 @@ anios = sorted(df_original['YEAR'].unique().tolist())
 anio_sel = st.sidebar.multiselect("📅 Año (vacío = todos)", anios)
 df = df_original[df_original['YEAR'].isin(anio_sel)] if anio_sel else df_original.copy()
 
-# Filtro por Zona (Habitat)
-zonas = sorted(df['HABITAT'].dropna().unique().tolist())
-zona_sel = st.sidebar.multiselect("📍 Zona (Hábitat)", zonas, default=zonas)
-df = df[df['HABITAT'].isin(zona_sel)] if zona_sel else df.copy()
+# Filtro por Zona (Parcela)
+zonas = sorted(df['PLOP'].dropna().unique().tolist())
+zona_sel = st.sidebar.multiselect("📍 Zona (Parcela)", zonas, default=zonas)
+df = df[df['PLOP'].isin(zona_sel)] if zona_sel else df.copy()
 
 # Filtro por Rol
 roles = df['Rol_Agroforestal'].unique().tolist()
