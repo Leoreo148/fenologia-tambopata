@@ -212,7 +212,7 @@ with tab_clima:
             in_start = st.date_input("Fecha Inicio", datetime.date(2025, 1, 1))
             in_end = st.date_input("Fecha Fin", datetime.date(2025, 12, 31))
         with col3:
-            fuente = st.radio("📡 Fuente de Datos", ["TerraClimate (Mensual, 4km)", "ERA5-Land (Por Hora, 9km)"])
+            fuente = st.radio("📡 Fuente de Datos", ["TerraClimate (Mensual, ~4.6km)", "ERA5-Land (Por Hora, ~11km)"])
 
         if st.button("🚀 Extraer Datos Climáticos", type="primary"):
             with st.spinner("Conectando con satélites y descargando datos. Por favor espera..."):
@@ -224,7 +224,7 @@ with tab_clima:
                     if "TerraClimate" in fuente:
                         st.info("ℹ️ Descargando de **TerraClimate (IDAHO_EPSCOR)**. Resolución: ~4km.")
                         coleccion = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE').select(['pr', 'tmmx', 'tmmn', 'vap', 'soil']).filterBounds(punto).filterDate(start_str, end_str)
-                        info = coleccion.getRegion(punto, 4000).getInfo()
+                        info = coleccion.getRegion(punto, 4638).getInfo()
                         
                         if len(info) > 1:
                             df_sat = pd.DataFrame(info[1:], columns=info[0])
@@ -257,7 +257,7 @@ with tab_clima:
                             st.warning("No se encontraron datos para estas fechas.")
 
                     else:
-                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~9km. Descarga en bloques mensuales...")
+                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~11km (0.1°). Descarga en bloques mensuales...")
                         
                         date_chunks = []
                         current = pd.to_datetime(in_start)
@@ -274,7 +274,7 @@ with tab_clima:
                         for i, (chunk_start, chunk_end) in enumerate(date_chunks):
                             coleccion = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').select(['temperature_2m', 'dewpoint_temperature_2m', 'total_precipitation', 'volumetric_soil_water_layer_1']).filterBounds(punto).filterDate(chunk_start, chunk_end)
                             try:
-                                info = coleccion.getRegion(punto, 9000).getInfo()
+                                info = coleccion.getRegion(punto, 11132).getInfo()
                                 if len(info) > 1:
                                     if header is None:
                                         header = info[0]
