@@ -196,13 +196,13 @@ with tab_feno:
 # TAB 2: EXTRACTOR CLIMÁTICO
 # =====================================================================
 with tab_clima:
-    st.title("🛰️ Extractor de Clima Satelital (Google Earth Engine)")
-    st.write("Descarga datos climáticos de alta resolución para cualquier coordenada exacta de tus parcelas.")
+    st.title("🛰️ Extractor de Clima Satelital")
+    st.write("Consulta y descarga datos de clima (lluvia, temperatura, humedad del suelo) vía Google Earth Engine.")
     
     if not gee_is_ready:
         st.error("⚠️ **No se pudo conectar a Google Earth Engine.** Revisa que los 'Secrets' estén bien configurados en Streamlit Cloud.")
     else:
-        st.success("✅ **Conectado exitosamente a los satélites de Google Earth Engine.**")
+        st.success("✅ **Conexión con Google Earth Engine activa.**")
         
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -257,7 +257,7 @@ with tab_clima:
                             st.warning("No se encontraron datos para estas fechas.")
 
                     else:
-                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~9km. ¡Descargando por partes (mes a mes) para no saturar la memoria!...")
+                        st.info("ℹ️ Descargando de **ERA5-Land Hourly (ECMWF)**. Resolución: ~9km. Descarga en bloques mensuales...")
                         
                         date_chunks = []
                         current = pd.to_datetime(in_start)
@@ -287,7 +287,7 @@ with tab_clima:
 
                         if all_data:
                             df_sat = pd.DataFrame(all_data, columns=header)
-                            df_sat = df_sat.drop_duplicates(subset=['id'])
+                            df_sat = df_sat.drop_duplicates(subset=['id', 'time'])
                             
                             df_sat['total_precipitation'] = pd.to_numeric(df_sat['total_precipitation'])
                             df_sat['temperature_2m'] = pd.to_numeric(df_sat['temperature_2m'])
@@ -296,7 +296,11 @@ with tab_clima:
                             
                             df_sat['temp_c'] = df_sat['temperature_2m'] - 273.15
                             df_sat['dew_c'] = df_sat['dewpoint_temperature_2m'] - 273.15
-                            df_sat['rain_mm'] = df_sat['total_precipitation'] * 1000.0
+                            # ERA5 total_precipitation es acumulada desde las 00:00 UTC (en metros).
+                            # Se calcula la diferencia horaria y se convierte a mm.
+                            precip_m = df_sat['total_precipitation'].copy()
+                            df_sat['rain_mm'] = precip_m.diff().clip(lower=0) * 1000.0
+                            df_sat.loc[df_sat.index[0], 'rain_mm'] = precip_m.iloc[0] * 1000.0
                             df_sat['soil_moisture_percent'] = df_sat['volumetric_soil_water_layer_1'] * 100.0
                             
                             num = np.exp((17.625 * df_sat['dew_c']) / (243.04 + df_sat['dew_c']))
