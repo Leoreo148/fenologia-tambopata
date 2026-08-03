@@ -191,90 +191,112 @@ with tab_feno:
     fig_clima.update_layout(height=600, template='plotly_white', hovermode='x unified')
     st.plotly_chart(fig_clima, use_container_width=True)
 
-    # ── Gráfico 5: Variabilidad Estacional de Fructificación ──
+    # ── Gráfico 5: Respuesta Fenológica a la Lluvia ──
     st.markdown("---")
-    st.subheader("📊 Variabilidad Estacional de Fructificación por Especie")
-    st.caption("El Coeficiente de Variación (CV) mide qué tan concentrada está la fructificación en pocos meses. "
-               "CV alto = fructifica en picos estacionales marcados. CV bajo = fructifica parejo todo el año.")
+    st.subheader("🌧️ Respuesta Fenológica a la Lluvia por Especie")
+    st.caption("¿Qué especies responden más a los cambios de lluvia? "
+               "Se mide la correlación (r de Pearson) entre lluvia mensual y la actividad de Flores o Frutos Verdes.")
 
-    # Calcular fructificación total y CV por especie
-    df_var = df_f.copy()
-    df_var['FRUCT_TOTAL'] = df_var['RF'] + df_var['UF'] + df_var['D']
-    fruct_mes = df_var.groupby(['Nombre científico', 'MONTH'])['FRUCT_TOTAL'].mean().reset_index()
-    pivot_var = fruct_mes.pivot_table(index='Nombre científico', columns='MONTH', values='FRUCT_TOTAL', fill_value=0)
-
-    stats_var = pd.DataFrame()
-    stats_var['Media'] = pivot_var.mean(axis=1)
-    stats_var['Desv_Std'] = pivot_var.std(axis=1)
-    stats_var['CV'] = (stats_var['Desv_Std'] / stats_var['Media'].replace(0, np.nan)) * 100
-    stats_var['Max_Mes'] = pivot_var.max(axis=1)
-    stats_var['Min_Mes'] = pivot_var.min(axis=1)
-    stats_var['Mes_Pico'] = pivot_var.idxmax(axis=1).map(MESES)
-    n_reg = df_var.groupby('Nombre científico').size().rename('N')
-    stats_var = stats_var.join(n_reg)
-    stats_var = stats_var[(stats_var['N'] >= 20) & (stats_var['Media'] > 0)].dropna(subset=['CV'])
-    stats_var = stats_var.sort_values('CV', ascending=True)
-
-    # Ranking horizontal
-    fig_cv = px.bar(
-        stats_var.reset_index(), x='CV', y='Nombre científico',
-        orientation='h', color='CV',
-        color_continuous_scale='RdYlGn_r',
-        template='plotly_white',
-        labels={'CV': 'Coeficiente de Variación (%)', 'Nombre científico': ''},
-        hover_data={'Media': ':.3f', 'Mes_Pico': True, 'N': True}
+    var_respuesta = st.radio(
+        "Variable fenológica a analizar:",
+        ['Flores (F)', 'Frutos Verdes (UF)'],
+        horizontal=True, key='var_respuesta'
     )
-    fig_cv.update_layout(height=max(400, len(stats_var) * 28), yaxis={'categoryorder': 'total ascending'})
-    st.plotly_chart(fig_cv, use_container_width=True)
+    col_resp = 'F' if 'Flores' in var_respuesta else 'UF'
+    label_resp = 'Flores' if col_resp == 'F' else 'Frutos Verdes'
 
-    # Selector de especie para ver perfil mensual
-    sp_list = stats_var.sort_values('CV', ascending=False).index.tolist()
-    if sp_list:
-        sp_sel = st.selectbox("Selecciona una especie para ver su perfil mensual de fructificación:", sp_list)
+    # Calcular correlación de cada especie con la lluvia
+    df_var = df_f.copy()
+    df_var[col_resp] = pd.to_numeric(df_var[col_resp], errors='coerce').fillna(0)
 
-        perfil = pivot_var.loc[sp_sel].reset_index()
-        perfil.columns = ['Mes_Num', 'Fructificación']
-        perfil['Mes'] = perfil['Mes_Num'].map(MESES)
-        perfil = perfil.sort_values('Mes_Num')
+    especies_unicas = df_var['Nombre científico'].unique()
+    resultados = []
+    for sp in especies_unicas:
+        df_sp_temp = df_var[df_var['Nombre científico'] == sp]
+        n_reg = len(df_sp_temp)
+        if n_reg < 20:
+            continue
+        mensual = df_sp_temp.groupby('MONTH').agg(
+            feno=(col_resp, 'mean'),
+            lluvia=('RAIN', 'mean'),
+            temp=('TEMPERATURE', 'mean')
+        ).reset_index()
+        if mensual['feno'].sum() == 0:
+            continue
+        if len(mensual) >= 4:
+            r_ll = mensual['feno'].corr(mensual['lluvia'])
+            r_t = mensual['feno'].corr(mensual['temp'])
+            mes_pico_num = mensual.loc[mensual['feno'].idxmax(), 'MONTH']
+            resultados.append({
+                'Especie': sp,
+                'r_Lluvia': r_ll,
+                'r_Temperatura': r_t,
+                'abs_r_Lluvia': abs(r_ll) if not np.isnan(r_ll) else 0,
+                'Media': mensual['feno'].mean(),
+                'Mes_Pico': MESES.get(mes_pico_num, '?'),
+                'N': n_reg
+            })
 
-        cv_val = stats_var.loc[sp_sel, 'CV']
-        pico = stats_var.loc[sp_sel, 'Mes_Pico']
-        n_val = int(stats_var.loc[sp_sel, 'N'])
+    if resultados:
+        df_rank = pd.DataFrame(resultados).sort_values('abs_r_Lluvia', ascending=True)
 
-        col_info1, col_info2, col_info3 = st.columns(3)
-        col_info1.metric("CV Estacional", f"{cv_val:.1f}%")
-        col_info2.metric("Mes Pico", pico)
-        col_info3.metric("Registros", f"{n_val:,}")
-
-        fig_perfil = px.bar(
-            perfil, x='Mes', y='Fructificación',
+        fig_rank = px.bar(
+            df_rank, x='r_Lluvia', y='Especie',
+            orientation='h',
+            color='r_Lluvia',
+            color_continuous_scale='RdBu',
+            color_continuous_midpoint=0,
             template='plotly_white',
-            color='Fructificación',
-            color_continuous_scale='YlOrRd'
+            labels={'r_Lluvia': f'Correlación {label_resp} vs Lluvia (r)', 'Especie': ''},
+            hover_data={'Media': ':.3f', 'Mes_Pico': True, 'N': True, 'r_Temperatura': ':.3f'}
         )
-        fig_perfil.update_layout(
-            xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())},
-            showlegend=False, height=350
+        fig_rank.update_layout(
+            height=max(400, len(df_rank) * 28),
+            yaxis={'categoryorder': 'total ascending'}
         )
-        st.plotly_chart(fig_perfil, use_container_width=True)
+        fig_rank.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.5)
+        st.plotly_chart(fig_rank, use_container_width=True)
 
-        # ── Cruce: Fructificación vs. Clima para la especie seleccionada ──
-        st.markdown("---")
-        st.subheader(f"🔗 {sp_sel} — Fructificación vs. Clima")
+        st.caption("🔵 Azul = más lluvia → más " + label_resp.lower() + " · "
+                   "🔴 Rojo = menos lluvia → más " + label_resp.lower() + " · "
+                   "Barras más largas = mayor respuesta a la lluvia")
 
-        df_sp = df_var[df_var['Nombre científico'] == sp_sel].copy()
+        # Selector de especie
+        sp_list_resp = df_rank.sort_values('abs_r_Lluvia', ascending=False)['Especie'].tolist()
+        sp_sel = st.selectbox("Selecciona una especie para ver el detalle:", sp_list_resp)
+
+        sp_row = df_rank[df_rank['Especie'] == sp_sel].iloc[0]
+        col_i1, col_i2, col_i3, col_i4 = st.columns(4)
+        col_i1.metric("r vs Lluvia", f"{sp_row['r_Lluvia']:.3f}")
+        col_i2.metric("r vs Temperatura", f"{sp_row['r_Temperatura']:.3f}")
+        col_i3.metric("Mes Pico", sp_row['Mes_Pico'])
+        col_i4.metric("Registros", f"{int(sp_row['N']):,}")
+
+        # Interpretación
+        r_ll = sp_row['r_Lluvia']
+        if abs(r_ll) > 0.6:
+            if r_ll > 0:
+                st.success(f"📈 **Respuesta fuerte positiva:** Cuando llueve más, *{sp_sel}* produce más {label_resp.lower()}.")
+            else:
+                st.warning(f"📉 **Respuesta fuerte negativa:** Cuando llueve menos (época seca), *{sp_sel}* produce más {label_resp.lower()}.")
+        elif abs(r_ll) > 0.3:
+            st.info(f"↔️ **Respuesta moderada** a la lluvia (r = {r_ll:.3f}).")
+        else:
+            st.info(f"⚪ **Respuesta débil:** La lluvia no parece ser el detonante principal de {label_resp.lower()} en *{sp_sel}*.")
+
+        # Gráfico superpuesto para la especie seleccionada
+        df_sp = df_var[df_var['Nombre científico'] == sp_sel]
         df_sp_clima = df_sp.groupby('MONTH').agg(
-            Fructificación=('FRUCT_TOTAL', 'mean'),
+            Fenología=(col_resp, 'mean'),
             Lluvia_mm=('RAIN', 'mean'),
             Temperatura_C=('TEMPERATURE', 'mean')
         ).reset_index()
         df_sp_clima['Mes'] = df_sp_clima['MONTH'].map(MESES)
 
-        # Gráfico superpuesto: barras de fructificación + líneas de clima
         fig_cruce = make_subplots(specs=[[{"secondary_y": True}]])
         fig_cruce.add_trace(
-            go.Bar(x=df_sp_clima['Mes'], y=df_sp_clima['Fructificación'],
-                   name='Fructificación', marker_color='#2d7a2d', opacity=0.8),
+            go.Bar(x=df_sp_clima['Mes'], y=df_sp_clima['Fenología'],
+                   name=label_resp, marker_color='#2d7a2d', opacity=0.8),
             secondary_y=False
         )
         fig_cruce.add_trace(
@@ -292,65 +314,43 @@ with tab_feno:
             xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())},
             legend=dict(orientation='h', yanchor='bottom', y=1.02)
         )
-        fig_cruce.update_yaxes(title_text="Fructificación (media)", secondary_y=False)
+        fig_cruce.update_yaxes(title_text=f"{label_resp} (media)", secondary_y=False)
         fig_cruce.update_yaxes(title_text="Lluvia (mm) / Temp (°C)", secondary_y=True)
         st.plotly_chart(fig_cruce, use_container_width=True)
 
-        # Correlaciones de Pearson
-        corr_data = df_sp_clima[['Fructificación', 'Lluvia_mm', 'Temperatura_C']].dropna()
+        # Scatter plots
+        corr_data = df_sp_clima[['Fenología', 'Lluvia_mm', 'Temperatura_C']].dropna()
         if len(corr_data) >= 4:
-            r_lluvia = corr_data['Fructificación'].corr(corr_data['Lluvia_mm'])
-            r_temp = corr_data['Fructificación'].corr(corr_data['Temperatura_C'])
-
-            cc1, cc2 = st.columns(2)
-            with cc1:
-                signo_ll = "📈" if r_lluvia > 0 else "📉"
-                st.metric(f"{signo_ll} Correlación con Lluvia", f"r = {r_lluvia:.3f}")
-                if abs(r_lluvia) > 0.6:
-                    st.caption("Correlación fuerte" + (" positiva: más lluvia → más frutos." if r_lluvia > 0 else " negativa: menos lluvia → más frutos."))
-                elif abs(r_lluvia) > 0.3:
-                    st.caption("Correlación moderada.")
-                else:
-                    st.caption("Correlación débil: la lluvia no parece ser el factor principal.")
-            with cc2:
-                signo_t = "📈" if r_temp > 0 else "📉"
-                st.metric(f"{signo_t} Correlación con Temperatura", f"r = {r_temp:.3f}")
-                if abs(r_temp) > 0.6:
-                    st.caption("Correlación fuerte" + (" positiva: más calor → más frutos." if r_temp > 0 else " negativa: menos calor → más frutos."))
-                elif abs(r_temp) > 0.3:
-                    st.caption("Correlación moderada.")
-                else:
-                    st.caption("Correlación débil: la temperatura no parece ser el factor principal.")
-
-            # Scatter plots
             sc1, sc2 = st.columns(2)
             with sc1:
                 fig_sc_ll = px.scatter(
-                    corr_data, x='Lluvia_mm', y='Fructificación',
+                    corr_data, x='Lluvia_mm', y='Fenología',
                     trendline='ols', template='plotly_white',
-                    labels={'Lluvia_mm': 'Lluvia (mm)', 'Fructificación': 'Fructificación'},
+                    labels={'Lluvia_mm': 'Lluvia (mm)', 'Fenología': label_resp},
                     color_discrete_sequence=['#3498db']
                 )
                 fig_sc_ll.update_layout(height=300)
                 st.plotly_chart(fig_sc_ll, use_container_width=True)
             with sc2:
                 fig_sc_t = px.scatter(
-                    corr_data, x='Temperatura_C', y='Fructificación',
+                    corr_data, x='Temperatura_C', y='Fenología',
                     trendline='ols', template='plotly_white',
-                    labels={'Temperatura_C': 'Temperatura (°C)', 'Fructificación': 'Fructificación'},
+                    labels={'Temperatura_C': 'Temperatura (°C)', 'Fenología': label_resp},
                     color_discrete_sequence=['tomato']
                 )
                 fig_sc_t.update_layout(height=300)
                 st.plotly_chart(fig_sc_t, use_container_width=True)
 
-    # Tabla descargable
-    with st.expander("Ver tabla completa de variabilidad"):
-        tabla_mostrar = stats_var[['Media', 'CV', 'Min_Mes', 'Max_Mes', 'Mes_Pico', 'N']].copy()
-        tabla_mostrar.columns = ['Media Fruct.', 'CV (%)', 'Mín. Mensual', 'Máx. Mensual', 'Mes Pico', 'Registros']
-        tabla_mostrar = tabla_mostrar.sort_values('CV (%)', ascending=False)
-        st.dataframe(tabla_mostrar, use_container_width=True)
-        csv_var = tabla_mostrar.reset_index().to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Descargar tabla CSV", csv_var, "variabilidad_fructificacion.csv", "text/csv")
+        # Tabla descargable
+        with st.expander("Ver tabla completa de respuesta a la lluvia"):
+            tabla_resp = df_rank[['Especie', 'r_Lluvia', 'r_Temperatura', 'Media', 'Mes_Pico', 'N']].copy()
+            tabla_resp.columns = ['Especie', 'r vs Lluvia', 'r vs Temperatura', f'Media {label_resp}', 'Mes Pico', 'Registros']
+            tabla_resp = tabla_resp.sort_values('r vs Lluvia', key=abs, ascending=False)
+            st.dataframe(tabla_resp, use_container_width=True, hide_index=True)
+            csv_resp = tabla_resp.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar tabla CSV", csv_resp, f"respuesta_lluvia_{col_resp}.csv", "text/csv")
+    else:
+        st.warning("No hay especies con datos suficientes para calcular la correlación.")
 
 
 # =====================================================================
