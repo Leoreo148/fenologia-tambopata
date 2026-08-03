@@ -191,6 +191,81 @@ with tab_feno:
     fig_clima.update_layout(height=600, template='plotly_white', hovermode='x unified')
     st.plotly_chart(fig_clima, use_container_width=True)
 
+    # ── Gráfico 5: Variabilidad Estacional de Fructificación ──
+    st.markdown("---")
+    st.subheader("📊 Variabilidad Estacional de Fructificación por Especie")
+    st.caption("El Coeficiente de Variación (CV) mide qué tan concentrada está la fructificación en pocos meses. "
+               "CV alto = fructifica en picos estacionales marcados. CV bajo = fructifica parejo todo el año.")
+
+    # Calcular fructificación total y CV por especie
+    df_var = df_f.copy()
+    df_var['FRUCT_TOTAL'] = df_var['RF'] + df_var['UF'] + df_var['D']
+    fruct_mes = df_var.groupby(['Nombre científico', 'MONTH'])['FRUCT_TOTAL'].mean().reset_index()
+    pivot_var = fruct_mes.pivot_table(index='Nombre científico', columns='MONTH', values='FRUCT_TOTAL', fill_value=0)
+
+    stats_var = pd.DataFrame()
+    stats_var['Media'] = pivot_var.mean(axis=1)
+    stats_var['Desv_Std'] = pivot_var.std(axis=1)
+    stats_var['CV'] = (stats_var['Desv_Std'] / stats_var['Media'].replace(0, np.nan)) * 100
+    stats_var['Max_Mes'] = pivot_var.max(axis=1)
+    stats_var['Min_Mes'] = pivot_var.min(axis=1)
+    stats_var['Mes_Pico'] = pivot_var.idxmax(axis=1).map(MESES)
+    n_reg = df_var.groupby('Nombre científico').size().rename('N')
+    stats_var = stats_var.join(n_reg)
+    stats_var = stats_var[(stats_var['N'] >= 20) & (stats_var['Media'] > 0)].dropna(subset=['CV'])
+    stats_var = stats_var.sort_values('CV', ascending=True)
+
+    # Ranking horizontal
+    fig_cv = px.bar(
+        stats_var.reset_index(), x='CV', y='Nombre científico',
+        orientation='h', color='CV',
+        color_continuous_scale='RdYlGn_r',
+        template='plotly_white',
+        labels={'CV': 'Coeficiente de Variación (%)', 'Nombre científico': ''},
+        hover_data={'Media': ':.3f', 'Mes_Pico': True, 'N': True}
+    )
+    fig_cv.update_layout(height=max(400, len(stats_var) * 28), yaxis={'categoryorder': 'total ascending'})
+    st.plotly_chart(fig_cv, use_container_width=True)
+
+    # Selector de especie para ver perfil mensual
+    sp_list = stats_var.sort_values('CV', ascending=False).index.tolist()
+    if sp_list:
+        sp_sel = st.selectbox("Selecciona una especie para ver su perfil mensual de fructificación:", sp_list)
+
+        perfil = pivot_var.loc[sp_sel].reset_index()
+        perfil.columns = ['Mes_Num', 'Fructificación']
+        perfil['Mes'] = perfil['Mes_Num'].map(MESES)
+        perfil = perfil.sort_values('Mes_Num')
+
+        cv_val = stats_var.loc[sp_sel, 'CV']
+        pico = stats_var.loc[sp_sel, 'Mes_Pico']
+        n_val = int(stats_var.loc[sp_sel, 'N'])
+
+        col_info1, col_info2, col_info3 = st.columns(3)
+        col_info1.metric("CV Estacional", f"{cv_val:.1f}%")
+        col_info2.metric("Mes Pico", pico)
+        col_info3.metric("Registros", f"{n_val:,}")
+
+        fig_perfil = px.bar(
+            perfil, x='Mes', y='Fructificación',
+            template='plotly_white',
+            color='Fructificación',
+            color_continuous_scale='YlOrRd'
+        )
+        fig_perfil.update_layout(
+            xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())},
+            showlegend=False, height=350
+        )
+        st.plotly_chart(fig_perfil, use_container_width=True)
+
+    # Tabla descargable
+    with st.expander("Ver tabla completa de variabilidad"):
+        tabla_mostrar = stats_var[['Media', 'CV', 'Min_Mes', 'Max_Mes', 'Mes_Pico', 'N']].copy()
+        tabla_mostrar.columns = ['Media Fruct.', 'CV (%)', 'Mín. Mensual', 'Máx. Mensual', 'Mes Pico', 'Registros']
+        tabla_mostrar = tabla_mostrar.sort_values('CV (%)', ascending=False)
+        st.dataframe(tabla_mostrar, use_container_width=True)
+        csv_var = tabla_mostrar.reset_index().to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Descargar tabla CSV", csv_var, "variabilidad_fructificacion.csv", "text/csv")
 
 # =====================================================================
 # TAB 2: EXTRACTOR CLIMÁTICO
