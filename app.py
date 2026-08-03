@@ -258,6 +258,91 @@ with tab_feno:
         )
         st.plotly_chart(fig_perfil, use_container_width=True)
 
+        # ── Cruce: Fructificación vs. Clima para la especie seleccionada ──
+        st.markdown("---")
+        st.subheader(f"🔗 {sp_sel} — Fructificación vs. Clima")
+
+        df_sp = df_var[df_var['Nombre científico'] == sp_sel].copy()
+        df_sp_clima = df_sp.groupby('MONTH').agg(
+            Fructificación=('FRUCT_TOTAL', 'mean'),
+            Lluvia_mm=('RAIN', 'mean'),
+            Temperatura_C=('TEMPERATURE', 'mean')
+        ).reset_index()
+        df_sp_clima['Mes'] = df_sp_clima['MONTH'].map(MESES)
+
+        # Gráfico superpuesto: barras de fructificación + líneas de clima
+        fig_cruce = make_subplots(specs=[[{"secondary_y": True}]])
+        fig_cruce.add_trace(
+            go.Bar(x=df_sp_clima['Mes'], y=df_sp_clima['Fructificación'],
+                   name='Fructificación', marker_color='#2d7a2d', opacity=0.8),
+            secondary_y=False
+        )
+        fig_cruce.add_trace(
+            go.Scatter(x=df_sp_clima['Mes'], y=df_sp_clima['Lluvia_mm'],
+                       name='Lluvia (mm)', line=dict(color='#3498db', width=3)),
+            secondary_y=True
+        )
+        fig_cruce.add_trace(
+            go.Scatter(x=df_sp_clima['Mes'], y=df_sp_clima['Temperatura_C'],
+                       name='Temperatura (°C)', line=dict(color='tomato', width=3, dash='dot')),
+            secondary_y=True
+        )
+        fig_cruce.update_layout(
+            height=420, template='plotly_white', hovermode='x unified',
+            xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())},
+            legend=dict(orientation='h', yanchor='bottom', y=1.02)
+        )
+        fig_cruce.update_yaxes(title_text="Fructificación (media)", secondary_y=False)
+        fig_cruce.update_yaxes(title_text="Lluvia (mm) / Temp (°C)", secondary_y=True)
+        st.plotly_chart(fig_cruce, use_container_width=True)
+
+        # Correlaciones de Pearson
+        corr_data = df_sp_clima[['Fructificación', 'Lluvia_mm', 'Temperatura_C']].dropna()
+        if len(corr_data) >= 4:
+            r_lluvia = corr_data['Fructificación'].corr(corr_data['Lluvia_mm'])
+            r_temp = corr_data['Fructificación'].corr(corr_data['Temperatura_C'])
+
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                signo_ll = "📈" if r_lluvia > 0 else "📉"
+                st.metric(f"{signo_ll} Correlación con Lluvia", f"r = {r_lluvia:.3f}")
+                if abs(r_lluvia) > 0.6:
+                    st.caption("Correlación fuerte" + (" positiva: más lluvia → más frutos." if r_lluvia > 0 else " negativa: menos lluvia → más frutos."))
+                elif abs(r_lluvia) > 0.3:
+                    st.caption("Correlación moderada.")
+                else:
+                    st.caption("Correlación débil: la lluvia no parece ser el factor principal.")
+            with cc2:
+                signo_t = "📈" if r_temp > 0 else "📉"
+                st.metric(f"{signo_t} Correlación con Temperatura", f"r = {r_temp:.3f}")
+                if abs(r_temp) > 0.6:
+                    st.caption("Correlación fuerte" + (" positiva: más calor → más frutos." if r_temp > 0 else " negativa: menos calor → más frutos."))
+                elif abs(r_temp) > 0.3:
+                    st.caption("Correlación moderada.")
+                else:
+                    st.caption("Correlación débil: la temperatura no parece ser el factor principal.")
+
+            # Scatter plots
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                fig_sc_ll = px.scatter(
+                    corr_data, x='Lluvia_mm', y='Fructificación',
+                    trendline='ols', template='plotly_white',
+                    labels={'Lluvia_mm': 'Lluvia (mm)', 'Fructificación': 'Fructificación'},
+                    color_discrete_sequence=['#3498db']
+                )
+                fig_sc_ll.update_layout(height=300)
+                st.plotly_chart(fig_sc_ll, use_container_width=True)
+            with sc2:
+                fig_sc_t = px.scatter(
+                    corr_data, x='Temperatura_C', y='Fructificación',
+                    trendline='ols', template='plotly_white',
+                    labels={'Temperatura_C': 'Temperatura (°C)', 'Fructificación': 'Fructificación'},
+                    color_discrete_sequence=['tomato']
+                )
+                fig_sc_t.update_layout(height=300)
+                st.plotly_chart(fig_sc_t, use_container_width=True)
+
     # Tabla descargable
     with st.expander("Ver tabla completa de variabilidad"):
         tabla_mostrar = stats_var[['Media', 'CV', 'Min_Mes', 'Max_Mes', 'Mes_Pico', 'N']].copy()
@@ -266,6 +351,7 @@ with tab_feno:
         st.dataframe(tabla_mostrar, use_container_width=True)
         csv_var = tabla_mostrar.reset_index().to_csv(index=False).encode('utf-8')
         st.download_button("📥 Descargar tabla CSV", csv_var, "variabilidad_fructificacion.csv", "text/csv")
+
 
 # =====================================================================
 # TAB 2: EXTRACTOR CLIMÁTICO

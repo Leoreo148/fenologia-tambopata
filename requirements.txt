@@ -3,3 +3,4 @@ openpyxl==3.1.2
 earthengine-api==0.1.411
 google-auth>=2.30.0
 plotly==5.19.0
+statsmodels
