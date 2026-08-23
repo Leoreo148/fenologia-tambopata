@@ -375,16 +375,104 @@ with tab_clima:
             in_start = st.date_input("Fecha Inicio", datetime.date(2025, 1, 1))
             in_end = st.date_input("Fecha Fin", datetime.date(2025, 12, 31))
         with col3:
-            fuente = st.radio("📡 Fuente de Datos", ["TerraClimate (Mensual, ~4.6km)", "ERA5-Land (Por Hora, ~11km)"])
+            fuente = st.radio("📡 Fuente de Datos", [
+                "Sentinel-2 NDWI (ESA, 10m)",
+                "FLDAS Suelo (NASA, ~9.6km)",
+                "TerraClimate (Mensual, ~4.6km)",
+                "ERA5-Land (Por Hora, ~11km)"
+            ])
 
         if st.button("🚀 Extraer Datos Climáticos", type="primary"):
-            with st.spinner("Conectando con satélites y descargando datos. Por favor espera..."):
+            with st.spinner("Conectando con satélites y procesando datos. Por favor espera..."):
                 try:
                     punto = ee.Geometry.Point([in_lon, in_lat])
                     start_str = in_start.strftime("%Y-%m-%d")
                     end_str = in_end.strftime("%Y-%m-%d")
 
-                    if "TerraClimate" in fuente:
+                    if "Sentinel-2" in fuente:
+                        st.info("ℹ️ Descargando de **Sentinel-2 (ESA / Copernicus)**. Resolución espacial: **10 metros**. Índice NDWI (Gao: `[B8-B11]/[B8+B11]`) con máscara automática de nubes.")
+                        
+                        def mask_s2(img):
+                            qa = img.select('QA60')
+                            cloud_mask = (1 << 10) | (1 << 11)
+                            return img.updateMask(qa.bitwiseAnd(cloud_mask).eq(0))
+
+                        def calc_ndwi(img):
+                            return img.addBands(img.normalizedDifference(['B8', 'B11']).rename('NDWI'))
+
+                        coleccion = (ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
+                                     .filterBounds(punto)
+                                     .filterDate(start_str, end_str)
+                                     .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 75))
+                                     .map(mask_s2)
+                                     .map(calc_ndwi)
+                                     .select(['NDWI']))
+
+                        info = coleccion.getRegion(punto, 10).getInfo()
+
+                        if len(info) > 1:
+                            df_sat = pd.DataFrame(info[1:], columns=info[0])
+                            df_sat['NDWI'] = pd.to_numeric(df_sat['NDWI'])
+                            df_sat = df_sat.dropna(subset=['NDWI'])
+                            df_sat['datetime'] = pd.to_datetime(pd.to_numeric(df_sat['time']), unit='ms')
+                            
+                            df_out = df_sat[['datetime', 'NDWI']].sort_values('datetime').reset_index(drop=True)
+                            df_out.columns = ['DATETIME', 'NDWI_10M']
+
+                            st.dataframe(df_out, use_container_width=True)
+
+                            fig = px.line(
+                                df_out, x='DATETIME', y='NDWI_10M',
+                                markers=True, template='plotly_white',
+                                title="Humedad Foliar del Dosel (NDWI a 10m - Sentinel-2)",
+                                labels={'DATETIME': 'Fecha de pasada del satélite', 'NDWI_10M': 'Índice NDWI (-1 a +1)'}
+                            )
+                            fig.update_traces(line_color='#1b5e20', marker_color='#2e7d32')
+                            st.plotly_chart(fig, use_container_width=True)
+
+                            csv = df_out.to_csv(index=False).encode('utf-8')
+                            st.download_button("📥 Descargar CSV (Sentinel-2 NDWI 10m)", csv, "sentinel2_ndwi_10m.csv", "text/csv")
+                        else:
+                            st.warning("No se encontraron pasadas de Sentinel-2 sin nubes para estas fechas y coordenadas.")
+
+                    elif "FLDAS" in fuente:
+                        st.info("ℹ️ Descargando de **FLDAS (NASA / USGS / USAID - FEWS NET)**. Resolución: ~9.6km (0.1°). Humedad de suelo regional multietapa.")
+
+                        coleccion = (ee.ImageCollection('NASA/FLDAS/NOAH01/C/GL/M/V001')
+                                     .filterBounds(punto)
+                                     .filterDate(start_str, end_str)
+                                     .select(['SoilMoi00_10cm_tavg', 'SoilMoi10_40cm_tavg', 'Tair_f_tavg', 'Rainf_f_tavg']))
+
+                        info = coleccion.getRegion(punto, 10000).getInfo()
+
+                        if len(info) > 1:
+                            df_sat = pd.DataFrame(info[1:], columns=info[0])
+                            df_sat['SoilMoi00_10cm'] = pd.to_numeric(df_sat['SoilMoi00_10cm_tavg']) * 100.0
+                            df_sat['SoilMoi10_40cm'] = pd.to_numeric(df_sat['SoilMoi10_40cm_tavg']) * 100.0
+                            df_sat['temp_c'] = pd.to_numeric(df_sat['Tair_f_tavg']) - 273.15
+                            df_sat['rain_mm_month'] = pd.to_numeric(df_sat['Rainf_f_tavg']) * 86400 * 30.4375
+                            df_sat['datetime'] = pd.to_datetime(df_sat['id'].str[0:4] + '-' + df_sat['id'].str[4:6] + '-01')
+
+                            df_out = df_sat[['datetime', 'rain_mm_month', 'temp_c', 'SoilMoi00_10cm', 'SoilMoi10_40cm']].copy()
+                            df_out.columns = ['DATETIME', 'RAIN_MM_MONTH', 'TEMPERATURE_C', 'SOIL_MOISTURE_0_10CM_PCT', 'SOIL_MOISTURE_10_40CM_PCT']
+
+                            st.dataframe(df_out, use_container_width=True)
+
+                            fig = make_subplots(specs=[[{"secondary_y": True}]])
+                            fig.add_trace(go.Scatter(x=df_out['DATETIME'], y=df_out['SOIL_MOISTURE_0_10CM_PCT'], name='Humedad Suelo 0-10cm (%)', line=dict(color='#2e7d32', width=2.5)), secondary_y=False)
+                            fig.add_trace(go.Scatter(x=df_out['DATETIME'], y=df_out['SOIL_MOISTURE_10_40CM_PCT'], name='Humedad Suelo 10-40cm (%)', line=dict(color='#81c784', width=2, dash='dash')), secondary_y=False)
+                            fig.add_trace(go.Bar(x=df_out['DATETIME'], y=df_out['RAIN_MM_MONTH'], name='Lluvia (mm/mes)', marker_color='lightblue', opacity=0.6), secondary_y=True)
+                            fig.update_layout(template='plotly_white', height=450, hovermode='x unified')
+                            fig.update_yaxes(title_text="Humedad Suelo (%)", secondary_y=False)
+                            fig.update_yaxes(title_text="Lluvia (mm)", secondary_y=True)
+                            st.plotly_chart(fig, use_container_width=True)
+
+                            csv = df_out.to_csv(index=False).encode('utf-8')
+                            st.download_button("📥 Descargar CSV (FLDAS NASA)", csv, "fldas_nasa_soil_moisture.csv", "text/csv")
+                        else:
+                            st.warning("No se encontraron datos de FLDAS para esas fechas.")
+
+                    elif "TerraClimate" in fuente:
                         st.info("ℹ️ Descargando de **TerraClimate (IDAHO_EPSCOR)**. Resolución: ~4.6km (1/24°).")
                         coleccion = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE').select(['pr', 'tmmx', 'tmmn', 'vap', 'soil']).filterBounds(punto).filterDate(start_str, end_str)
                         info = coleccion.getRegion(punto, 4638).getInfo()
