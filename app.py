@@ -180,15 +180,33 @@ with tab_feno:
     st.plotly_chart(fig_heat, use_container_width=True)
 
     # Gráfico 4
-    st.subheader("🌦️ Fenología vs. Clima (Promedio Histórico Mensual)")
-    df_clima = df_f.groupby('MONTH')[['RAIN', 'TEMPERATURE', metrica_col]].mean().reset_index()
-    df_clima['Mes'] = df_clima['MONTH'].map(MESES)
+    st.subheader("🌦️ Fenología vs. Clima")
+    n_anios_g4 = df_f['YEAR'].nunique()
+    if n_anios_g4 > 1:
+        modo_g4 = st.radio(
+            "Visualización de Fenología vs Clima:",
+            ["📅 Serie Temporal Continua (Año a Año)", "🔄 Ciclo Estacional Promedio (Ene a Dic)"],
+            horizontal=True, key="modo_g4"
+        )
+    else:
+        modo_g4 = "🔄 Ciclo Estacional Promedio (Ene a Dic)"
+
+    if "Continua" in modo_g4:
+        df_clima = df_f.groupby('Fecha')[['RAIN', 'TEMPERATURE', metrica_col]].mean().reset_index()
+        x_g4 = df_clima['Fecha']
+    else:
+        df_clima = df_f.groupby('MONTH')[['RAIN', 'TEMPERATURE', metrica_col]].mean().reset_index()
+        df_clima['Mes'] = df_clima['MONTH'].map(MESES)
+        x_g4 = df_clima['Mes']
+
     fig_clima = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.12, specs=[[{"secondary_y": True}], [{"secondary_y": True}]])
-    fig_clima.add_trace(go.Bar(x=df_clima['Mes'], y=df_clima['RAIN'], name='Lluvia (mm)', marker_color='lightblue'), row=1, col=1, secondary_y=False)
-    fig_clima.add_trace(go.Scatter(x=df_clima['Mes'], y=df_clima[metrica_col], name=metrica_label, line=dict(color='forestgreen', width=3)), row=1, col=1, secondary_y=True)
-    fig_clima.add_trace(go.Scatter(x=df_clima['Mes'], y=df_clima['TEMPERATURE'], name='Temp (°C)', line=dict(color='tomato', width=3)), row=2, col=1, secondary_y=False)
-    fig_clima.add_trace(go.Scatter(x=df_clima['Mes'], y=df_clima[metrica_col], name=metrica_label, line=dict(color='forestgreen', width=3), showlegend=False), row=2, col=1, secondary_y=True)
+    fig_clima.add_trace(go.Bar(x=x_g4, y=df_clima['RAIN'], name='Lluvia (mm)', marker_color='lightblue'), row=1, col=1, secondary_y=False)
+    fig_clima.add_trace(go.Scatter(x=x_g4, y=df_clima[metrica_col], name=metrica_label, line=dict(color='forestgreen', width=3)), row=1, col=1, secondary_y=True)
+    fig_clima.add_trace(go.Scatter(x=x_g4, y=df_clima['TEMPERATURE'], name='Temp (°C)', line=dict(color='tomato', width=3)), row=2, col=1, secondary_y=False)
+    fig_clima.add_trace(go.Scatter(x=x_g4, y=df_clima[metrica_col], name=metrica_label, line=dict(color='forestgreen', width=3), showlegend=False), row=2, col=1, secondary_y=True)
     fig_clima.update_layout(height=600, template='plotly_white', hovermode='x unified')
+    if "Estacional" in modo_g4:
+        fig_clima.update_xaxes(categoryorder='array', categoryarray=list(MESES.values()))
     st.plotly_chart(fig_clima, use_container_width=True)
 
     # ── Gráfico 5: Respuesta Fenológica a la Lluvia ──
@@ -288,34 +306,54 @@ with tab_feno:
 
         # Gráfico superpuesto para la especie seleccionada
         df_sp = df_var[df_var['Nombre científico'] == sp_sel]
-        df_sp_clima = df_sp.groupby('MONTH').agg(
-            Fenología=(col_resp, 'mean'),
-            Lluvia_mm=('RAIN', 'mean'),
-            Temperatura_C=('TEMPERATURE', 'mean')
-        ).reset_index()
-        df_sp_clima['Mes'] = df_sp_clima['MONTH'].map(MESES)
+        n_anios_sp = df_sp['YEAR'].nunique()
+        if n_anios_sp > 1:
+            modo_sp = st.radio(
+                f"Modo temporal para {sp_sel}:",
+                ["📅 Serie Temporal Continua (Año a Año)", "🔄 Ciclo Estacional Promedio (Ene a Dic)"],
+                horizontal=True, key=f"modo_sp_{sp_sel}"
+            )
+        else:
+            modo_sp = "🔄 Ciclo Estacional Promedio (Ene a Dic)"
+
+        if "Continua" in modo_sp:
+            df_sp_clima = df_sp.groupby('Fecha').agg(
+                Fenología=(col_resp, 'mean'),
+                Lluvia_mm=('RAIN', 'mean'),
+                Temperatura_C=('TEMPERATURE', 'mean')
+            ).reset_index()
+            x_sp = df_sp_clima['Fecha']
+        else:
+            df_sp_clima = df_sp.groupby('MONTH').agg(
+                Fenología=(col_resp, 'mean'),
+                Lluvia_mm=('RAIN', 'mean'),
+                Temperatura_C=('TEMPERATURE', 'mean')
+            ).reset_index()
+            df_sp_clima['Mes'] = df_sp_clima['MONTH'].map(MESES)
+            x_sp = df_sp_clima['Mes']
 
         fig_cruce = make_subplots(specs=[[{"secondary_y": True}]])
         fig_cruce.add_trace(
-            go.Bar(x=df_sp_clima['Mes'], y=df_sp_clima['Fenología'],
+            go.Bar(x=x_sp, y=df_sp_clima['Fenología'],
                    name=label_resp, marker_color='#2d7a2d', opacity=0.8),
             secondary_y=False
         )
         fig_cruce.add_trace(
-            go.Scatter(x=df_sp_clima['Mes'], y=df_sp_clima['Lluvia_mm'],
+            go.Scatter(x=x_sp, y=df_sp_clima['Lluvia_mm'],
                        name='Lluvia (mm)', line=dict(color='#3498db', width=3)),
             secondary_y=True
         )
         fig_cruce.add_trace(
-            go.Scatter(x=df_sp_clima['Mes'], y=df_sp_clima['Temperatura_C'],
+            go.Scatter(x=x_sp, y=df_sp_clima['Temperatura_C'],
                        name='Temperatura (°C)', line=dict(color='tomato', width=3, dash='dot')),
             secondary_y=True
         )
         fig_cruce.update_layout(
             height=420, template='plotly_white', hovermode='x unified',
-            xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())},
             legend=dict(orientation='h', yanchor='bottom', y=1.02)
         )
+        if "Estacional" in modo_sp:
+            fig_cruce.update_layout(xaxis={'categoryorder': 'array', 'categoryarray': list(MESES.values())})
         fig_cruce.update_yaxes(title_text=f"{label_resp} (media)", secondary_y=False)
         fig_cruce.update_yaxes(title_text="Lluvia (mm) / Temp (°C)", secondary_y=True)
         st.plotly_chart(fig_cruce, use_container_width=True)
