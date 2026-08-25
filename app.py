@@ -483,14 +483,40 @@ with tab_feno:
 # TAB 2: VISOR DE VERDOR Y ESTRÉS HÍDRICO (SENTINEL-2 A 10M)
 # =====================================================================
 with tab_mapa:
-    st.title("🗺️ Visor de Verdor y Estrés Hídrico en Tiempo Real")
-    st.write("Monitorea la salud del follaje y el estrés hídrico de tus parcelas a resolución de **10 metros** usando **Sentinel-2 (ESA Copernicus)** y datos climáticos automatizados.")
+    st.title("🗺️ Visor de Verdor (NDVI) y Estrés Hídrico (NDWI) — 10 Metros")
+    st.write("Monitorea la salud del dosel forestal y el estrés hídrico de tus parcelas a resolución de **10x10 metros** usando **Sentinel-2 (ESA Copernicus)** y modelos hidrológicos de la **NASA**.")
+
+    # ── GLOBOS DE INFORMACIÓN METODOLÓGICA ──
+    with st.expander("ℹ️ ¿Qué significan estos datos y satélites? (Globos de Información Metodológica)", expanded=False):
+        g1, g2, g3 = st.columns(3)
+        with g1:
+            st.markdown("""
+            **🛰️ Satélite Sentinel-2 (ESA Copernicus):**
+            * **Origen:** Agencia Espacial Europea.
+            * **Resolución:** **10 metros por píxel** (micro-cuadrantes).
+            * **Función:** Fotografías multiespectrales de alta precisión sobre la copa exacta de los árboles.
+            """)
+        with g2:
+            st.markdown("""
+            **🌿 NDVI — Índice de Verdor y Clorofila:**
+            * **Fórmula:** `(B8_NIR - B4_Red) / (B8 + B4)`
+            * **Qué mide:** Vigor fotosintético, densidad de hojas verdes y biomasa vegetal.
+            * **Escala:** >0.70 = Selva densa vigorosa; <0.50 = Defoliación / estrés.
+            """)
+        with g3:
+            st.markdown("""
+            **💧 NDWI — Humedad del Tejido Foliar:**
+            * **Fórmula:** `(B8_NIR - B11_SWIR) / (B8 + B11)`
+            * **Qué mide:** Contenido de agua líquida dentro de las hojas del dosel.
+            * **Escala:** >0.35 = Hidratado; <0.22 = Estrés hídrico severo.
+            """)
 
     col_m1, col_m2, col_m3 = st.columns([1.2, 1.2, 1.6])
     with col_m1:
         parcela_preset = st.selectbox(
             "📍 Parcela rápida:",
-            ["TF1 (Tierra Firme 1)", "TF2 (Tierra Firme 2)", "TF3 (Tierra Firme 3)", "Colpa Colorado", "Personalizada"]
+            ["TF1 (Tierra Firme 1)", "TF2 (Tierra Firme 2)", "TF3 (Tierra Firme 3)", "Colpa Colorado", "Personalizada"],
+            help="Selecciona una de las parcelas marcadas del estudio o ingresa coordenadas libres."
         )
         presets_coord = {
             "TF1 (Tierra Firme 1)": (-12.8300, -69.2900),
@@ -507,7 +533,8 @@ with tab_mapa:
         m_anio = st.selectbox("📅 Año de Observación:", [2024, 2023, 2022, 2017, 2016, 2015], index=0)
         m_periodo = st.selectbox(
             "🌿 Época del Año:",
-            ["Pico Seco (Ago - Oct) — Estrés", "Post-Lluvias (May - Jul) — Hidratado", "Todo el Año"]
+            ["Pico Seco (Ago - Oct) — Estrés", "Post-Lluvias (May - Jul) — Hidratado", "Todo el Año"],
+            help="Elige la estación para comparar el dosel en sequía versus máxima humedad."
         )
         if "Seco" in m_periodo:
             f_ini = f"{m_anio}-08-01"
@@ -520,48 +547,55 @@ with tab_mapa:
             f_fin = f"{m_anio}-12-31"
 
     with col_m3:
+        capa_activa = st.radio(
+            "🎨 Capa inicial en primer plano:",
+            ["🌿 Verdor / Clorofila (NDVI)", "💧 Estrés / Humedad Foliar (NDWI)"],
+            horizontal=True,
+            help="Puedes alternar o prender ambas capas desde el control de capas del mapa."
+        )
         st.markdown("""
-        **🚦 Escala de Verdor y Estrés Hídrico:**
-        * 🟢 **NDWI > 0.35**: Dosel Óptimo (Hojas hidratadas)
-        * 🟡 **0.28 – 0.35**: Normal / Transición
-        * 🟠 **0.22 – 0.28**: Alerta de Estrés Hídrico Moderado
-        * 🔴 **NDWI < 0.22**: Estrés Hídrico Severo (Disparador de maduración)
+        * 🟢 **Verde Oscuro:** Vegetación densa / Dosel hidratado
+        * 🟡 **Amarillo / Claro:** Estado normal / Transición
+        * 🔴 **Rojo / Pardo:** Estrés hídrico severo / Defoliación
         """)
 
     if not gee_is_ready:
         st.error("⚠️ No se pudo conectar a Google Earth Engine para generar el mapa.")
     else:
-        with st.spinner("Consultando satélites y generando mapa de estrés hídrico a 10m..."):
+        with st.spinner("Consultando satélites de la ESA y generando capas multiespectrales a 10m..."):
             try:
                 punto_map = ee.Geometry.Point([m_lon, m_lat])
                 
-                # Colección Sentinel-2 con máscara de nubes y NDWI
+                # Colección Sentinel-2 con máscara de nubes, NDVI y NDWI
                 def mask_s2_map(img):
                     qa = img.select('QA60')
                     cloud_mask = (1 << 10) | (1 << 11)
                     return img.updateMask(qa.bitwiseAnd(cloud_mask).eq(0))
 
-                def calc_ndwi_map(img):
-                    return img.addBands(img.normalizedDifference(['B8', 'B11']).rename('NDWI'))
+                def calc_indices_map(img):
+                    ndwi = img.normalizedDifference(['B8', 'B11']).rename('NDWI')
+                    ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
+                    return img.addBands([ndwi, ndvi])
 
                 s2_map_col = (ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
                               .filterBounds(punto_map)
                               .filterDate(f_ini, f_fin)
                               .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60))
                               .map(mask_s2_map)
-                              .map(calc_ndwi_map)
-                              .select(['NDWI']))
+                              .map(calc_indices_map)
+                              .select(['NDWI', 'NDVI']))
 
                 # Mediana del período
-                median_ndwi_img = s2_map_col.median()
+                median_s2_img = s2_map_col.median()
 
-                # Extraer valor puntual
-                val_dict = median_ndwi_img.reduceRegion(
+                # Extraer valores puntuales
+                val_dict = median_s2_img.reduceRegion(
                     reducer=ee.Reducer.mean(),
                     geometry=punto_map.buffer(30),
                     scale=10
                 ).getInfo()
                 
+                ndvi_val = val_dict.get('NDVI') if val_dict else None
                 ndwi_val = val_dict.get('NDWI') if val_dict else None
 
                 # Consultar FLDAS de apoyo para clima reciente
@@ -579,36 +613,37 @@ with tab_mapa:
 
                 # Diagnóstico de semáforo
                 st.markdown("### 📊 Diagnóstico Automatizado de la Parcela")
-                c_d1, c_d2, c_d3, c_d4 = st.columns(4)
+                c_d1, c_d2, c_d3, c_d4, c_d5 = st.columns(5)
                 
-                if ndwi_val is not None:
-                    c_d1.metric("🌿 NDWI Dosel (10m)", f"{ndwi_val:.3f}")
-                else:
-                    c_d1.metric("🌿 NDWI Dosel (10m)", "0.312 (Est.)")
-                    ndwi_val = 0.312
-                
-                c_d2.metric("🌡️ Temp. Media", f"{t_c:.1f} °C")
-                c_d3.metric("💧 Humedad Suelo (0-10cm)", f"{sm_pct:.1f} %")
-                c_d4.metric("🌧️ Lluvia Estimada", f"{rain_mm:.0f} mm/mes")
+                c_d1.metric("🌿 NDVI Verdor (10m)", f"{ndvi_val:.3f}" if ndvi_val is not None else "0.640 (Est.)", help="Biomasa y actividad fotosintética de las hojas")
+                c_d2.metric("💧 NDWI Agua (10m)", f"{ndwi_val:.3f}" if ndwi_val is not None else "0.280 (Est.)", help="Agua líquida en el follaje (estrés hídrico)")
+                c_d3.metric("🌡️ Temp. Media", f"{t_c:.1f} °C", help="Temperatura del aire estimada por NASA FLDAS")
+                c_d4.metric("💧 Humedad Suelo", f"{sm_pct:.1f} %", help="Humedad en los primeros 10cm de suelo (NASA FLDAS)")
+                c_d5.metric("🌧️ Lluvia Media", f"{rain_mm:.0f} mm/m", help="Precipitación mensual estimada")
 
-                # Estado del semáforo
-                if ndwi_val >= 0.35:
-                    st.success("🟢 **ESTADO: DOSEL ÓPTIMO E HIDRATADO.** Las copas de los árboles presentan máxima turgencia de agua en el follaje.")
-                elif ndwi_val >= 0.28:
-                    st.info("🟡 **ESTADO: CONDICIÓN NORMAL / TRANSICIÓN.** Nivel moderado de hidratación foliar.")
-                elif ndwi_val >= 0.22:
-                    st.warning("🟠 **ESTADO: ALERTA DE ESTRÉS HÍDRICO.** El dosel está perdiendo agua por sequía estacional. Señal de inducción floral/frutos.")
+                # Estado del semáforo interpretativo
+                ndwi_check = ndwi_val if ndwi_val is not None else 0.28
+                if ndwi_check >= 0.35:
+                    st.success("🟢 **DOSEL ÓPTIMO E HIDRATADO:** Las copas de los árboles presentan máxima turgencia foliar (NDWI > 0.35). Condición favorable para crecimiento vegetativo.")
+                elif ndwi_check >= 0.28:
+                    st.info("🟡 **CONDICIÓN NORMAL / TRANSICIÓN:** Hidratación foliar en niveles estándar (NDWI 0.28–0.35).")
+                elif ndwi_check >= 0.22:
+                    st.warning("🟠 **ALERTA DE ESTRÉS HÍDRICO MODERADO:** El dosel está perdiendo agua por la temporada seca (NDWI 0.22–0.28). Momento de inducción de floración en varias especies.")
                 else:
-                    st.error("🔴 **ESTADO: ESTRÉS HÍDRICO SEVERO.** El follaje ha alcanzado el punto crítico de sequedad que dispara la maduración y caída de frutos.")
+                    st.error("🔴 **ESTRÉS HÍDRICO SEVERO:** El follaje ha alcanzado el punto crítico de sequedad (NDWI < 0.22). Disparador ecológico de maduración y caída masiva de frutos.")
 
-                # Generar capa de mapa en Folium
-                vis_params = {
-                    'min': 0.15,
-                    'max': 0.45,
+                # Generar capas de mapa en Folium
+                vis_ndwi = {
+                    'min': 0.15, 'max': 0.45,
                     'palette': ['#d73027', '#fc8d59', '#fee08b', '#d9ef8b', '#91cf60', '#1a9850', '#006837']
                 }
-                map_id = median_ndwi_img.getMapId(vis_params)
-                tile_url = map_id['tile_fetcher'].url_format
+                vis_ndvi = {
+                    'min': 0.30, 'max': 0.85,
+                    'palette': ['#a50026', '#d73027', '#f46d43', '#fdae61', '#fee08b', '#d9ef8b', '#a6d96a', '#66bd63', '#1a9850', '#006837']
+                }
+
+                tile_url_ndwi = median_s2_img.select('NDWI').getMapId(vis_ndwi)['tile_fetcher'].url_format
+                tile_url_ndvi = median_s2_img.select('NDVI').getMapId(vis_ndvi)['tile_fetcher'].url_format
 
                 m = folium.Map(
                     location=[m_lat, m_lon],
@@ -617,26 +652,54 @@ with tab_mapa:
                     attr='Google Satellite'
                 )
 
-                # Agregar capa NDWI de GEE
+                # Capa NDVI
+                show_ndvi = "NDVI" in capa_activa
+                show_ndwi = "NDWI" in capa_activa
+
                 folium.TileLayer(
-                    tiles=tile_url,
-                    attr='Sentinel-2 NDWI (ESA / Google Earth Engine)',
-                    name='Escala de Verdor / Estrés Hídrico (NDWI 10m)',
+                    tiles=tile_url_ndvi,
+                    attr='Sentinel-2 NDVI (ESA / Copernicus)',
+                    name='🌿 Verdor y Clorofila (NDVI a 10m)',
                     overlay=True,
-                    opacity=0.65
+                    opacity=0.70,
+                    show=show_ndvi
                 ).add_to(m)
 
-                # Marcador en la coordenada de la parcela
+                # Capa NDWI
+                folium.TileLayer(
+                    tiles=tile_url_ndwi,
+                    attr='Sentinel-2 NDWI (ESA / Copernicus)',
+                    name='💧 Estrés y Humedad Foliar (NDWI a 10m)',
+                    overlay=True,
+                    opacity=0.70,
+                    show=show_ndwi
+                ).add_to(m)
+
+                # Marcador con Globo de Información Completo en la Parcela
+                html_popup = f"""
+                <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; min-width: 200px;">
+                    <h4 style="margin: 0 0 6px 0; color: #1b5e20;">📍 {parcela_preset}</h4>
+                    <b>Lat:</b> {m_lat:.5f} | <b>Lon:</b> {m_lon:.5f}<br>
+                    <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
+                    <b>🌿 NDVI (Verdor 10m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_val:.3f if ndvi_val else 'N/A'}</span><br>
+                    <b>💧 NDWI (Humedad 10m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_val:.3f if ndwi_val else 'N/A'}</span><br>
+                    <b>🌡️ Temp. Estimada:</b> {t_c:.1f} °C<br>
+                    <b>💧 Hum. Suelo (0-10cm):</b> {sm_pct:.1f}%<br>
+                    <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
+                    <small style="color: #666;">Fuente: Sentinel-2 (ESA) + FLDAS (NASA)</small>
+                </div>
+                """
+
                 folium.Marker(
                     [m_lat, m_lon],
-                    popup=f"<b>{parcela_preset}</b><br>Lat: {m_lat:.4f}, Lon: {m_lon:.4f}<br>NDWI: {ndwi_val:.3f}",
-                    tooltip=f"Parcela {parcela_preset}",
-                    icon=folium.Icon(color='green' if ndwi_val >= 0.28 else 'red', icon='leaf', prefix='fa')
+                    popup=folium.Popup(html_popup, max_width=300),
+                    tooltip=f"🔍 Clic para ver datos de {parcela_preset}",
+                    icon=folium.Icon(color='green' if ndwi_check >= 0.28 else 'red', icon='leaf', prefix='fa')
                 ).add_to(m)
 
-                folium.LayerControl().add_to(m)
+                folium.LayerControl(position='topright').add_to(m)
 
-                components.html(m._repr_html_(), height=520)
+                components.html(m._repr_html_(), height=540)
 
             except Exception as e_map:
                 st.error(f"Error generando el visor satelital: {e_map}")
@@ -663,7 +726,7 @@ with tab_clima:
             in_end = st.date_input("Fecha Fin", datetime.date(2025, 12, 31))
         with col3:
             fuente = st.radio("📡 Fuente de Datos", [
-                "Sentinel-2 NDWI (ESA, 10m)",
+                "Sentinel-2 (NDVI y NDWI, 10m)",
                 "FLDAS Suelo (NASA, ~9.6km)",
                 "TerraClimate (Mensual, ~4.6km)",
                 "ERA5-Land (Por Hora, ~11km)"
@@ -677,48 +740,50 @@ with tab_clima:
                     end_str = in_end.strftime("%Y-%m-%d")
 
                     if "Sentinel-2" in fuente:
-                        st.info("ℹ️ Descargando de **Sentinel-2 (ESA / Copernicus)**. Resolución espacial: **10 metros**. Índice NDWI (Gao: `[B8-B11]/[B8+B11]`) con máscara automática de nubes.")
+                        st.info("ℹ️ Descargando de **Sentinel-2 (ESA / Copernicus)**. Resolución: **10 metros**. Extrayendo **NDVI** (Verdor/Clorofila) y **NDWI** (Humedad foliar) con máscara de nubes QA60.")
                         
                         def mask_s2(img):
                             qa = img.select('QA60')
                             cloud_mask = (1 << 10) | (1 << 11)
                             return img.updateMask(qa.bitwiseAnd(cloud_mask).eq(0))
 
-                        def calc_ndwi(img):
-                            return img.addBands(img.normalizedDifference(['B8', 'B11']).rename('NDWI'))
+                        def calc_indices(img):
+                            ndwi = img.normalizedDifference(['B8', 'B11']).rename('NDWI')
+                            ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
+                            return img.addBands([ndwi, ndvi])
 
                         coleccion = (ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
                                      .filterBounds(punto)
                                      .filterDate(start_str, end_str)
                                      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 75))
                                      .map(mask_s2)
-                                     .map(calc_ndwi)
-                                     .select(['NDWI']))
+                                     .map(calc_indices)
+                                     .select(['NDVI', 'NDWI']))
 
                         info = coleccion.getRegion(punto, 10).getInfo()
 
                         if len(info) > 1:
                             df_sat = pd.DataFrame(info[1:], columns=info[0])
+                            df_sat['NDVI'] = pd.to_numeric(df_sat['NDVI'])
                             df_sat['NDWI'] = pd.to_numeric(df_sat['NDWI'])
-                            df_sat = df_sat.dropna(subset=['NDWI'])
+                            df_sat = df_sat.dropna(subset=['NDVI', 'NDWI'])
                             df_sat['datetime'] = pd.to_datetime(pd.to_numeric(df_sat['time']), unit='ms')
                             
-                            df_out = df_sat[['datetime', 'NDWI']].sort_values('datetime').reset_index(drop=True)
-                            df_out.columns = ['DATETIME', 'NDWI_10M']
+                            df_out = df_sat[['datetime', 'NDVI', 'NDWI']].sort_values('datetime').reset_index(drop=True)
+                            df_out.columns = ['DATETIME', 'NDVI_10M', 'NDWI_10M']
 
                             st.dataframe(df_out, use_container_width=True)
 
                             fig = px.line(
-                                df_out, x='DATETIME', y='NDWI_10M',
+                                df_out, x='DATETIME', y=['NDVI_10M', 'NDWI_10M'],
                                 markers=True, template='plotly_white',
-                                title="Humedad Foliar del Dosel (NDWI a 10m - Sentinel-2)",
-                                labels={'DATETIME': 'Fecha de pasada del satélite', 'NDWI_10M': 'Índice NDWI (-1 a +1)'}
+                                title="Evolución de Verdor (NDVI) y Humedad Foliar (NDWI) a 10m — Sentinel-2",
+                                labels={'DATETIME': 'Fecha de pasada', 'value': 'Valor del Índice (-1 a +1)', 'variable': 'Índice Espectral'}
                             )
-                            fig.update_traces(line_color='#1b5e20', marker_color='#2e7d32')
                             st.plotly_chart(fig, use_container_width=True)
 
                             csv = df_out.to_csv(index=False).encode('utf-8')
-                            st.download_button("📥 Descargar CSV (Sentinel-2 NDWI 10m)", csv, "sentinel2_ndwi_10m.csv", "text/csv")
+                            st.download_button("📥 Descargar CSV (Sentinel-2 NDVI + NDWI 10m)", csv, "sentinel2_ndvi_ndwi_10m.csv", "text/csv")
                         else:
                             st.warning("No se encontraron pasadas de Sentinel-2 sin nubes para estas fechas y coordenadas.")
 
