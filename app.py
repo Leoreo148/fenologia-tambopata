@@ -530,7 +530,7 @@ with tab_mapa:
         m_lon = st.number_input("Longitud", value=default_lon, format="%.5f", key="map_lon")
 
     with col_m2:
-        m_anio = st.selectbox("📅 Año de Observación:", [2024, 2023, 2022, 2017, 2016, 2015], index=0)
+        m_anio = st.selectbox("📅 Año de Observación:", list(range(2026, 2009, -1)), index=2, help="Disponible desde 2010 hasta 2026.")
         m_periodo = st.selectbox(
             "🌿 Época del Año:",
             ["Pico Seco (Ago - Oct) — Estrés", "Post-Lluvias (May - Jul) — Hidratado", "Todo el Año"],
@@ -562,37 +562,66 @@ with tab_mapa:
     if not gee_is_ready:
         st.error("⚠️ No se pudo conectar a Google Earth Engine para generar el mapa.")
     else:
-        with st.spinner("Consultando satélites de la ESA y generando capas multiespectrales a 10m..."):
+        with st.spinner(f"Consultando satélites ({'Sentinel-2 a 10m' if m_anio >= 2015 else 'Landsat a 30m'}) y generando capas..."):
             try:
                 punto_map = ee.Geometry.Point([m_lon, m_lat])
                 
-                # Colección Sentinel-2 con máscara de nubes, NDVI y NDWI
-                def mask_s2_map(img):
-                    qa = img.select('QA60')
-                    cloud_mask = (1 << 10) | (1 << 11)
-                    return img.updateMask(qa.bitwiseAnd(cloud_mask).eq(0))
+                if m_anio >= 2015:
+                    sat_nombre = "Sentinel-2 (ESA Copernicus, 10m)"
+                    sat_res = 10
+                    # Colección Sentinel-2 con máscara de nubes, NDVI y NDWI
+                    def mask_s2_map(img):
+                        qa = img.select('QA60')
+                        cloud_mask = (1 << 10) | (1 << 11)
+                        return img.updateMask(qa.bitwiseAnd(cloud_mask).eq(0))
 
-                def calc_indices_map(img):
-                    ndwi = img.normalizedDifference(['B8', 'B11']).rename('NDWI')
-                    ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
-                    return img.addBands([ndwi, ndvi])
+                    def calc_indices_s2(img):
+                        ndwi = img.normalizedDifference(['B8', 'B11']).rename('NDWI')
+                        ndvi = img.normalizedDifference(['B8', 'B4']).rename('NDVI')
+                        return img.addBands([ndwi, ndvi])
 
-                s2_map_col = (ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
-                              .filterBounds(punto_map)
-                              .filterDate(f_ini, f_fin)
-                              .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60))
-                              .map(mask_s2_map)
-                              .map(calc_indices_map)
-                              .select(['NDWI', 'NDVI']))
+                    map_col = (ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
+                               .filterBounds(punto_map)
+                               .filterDate(f_ini, f_fin)
+                               .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 65))
+                               .map(mask_s2_map)
+                               .map(calc_indices_s2)
+                               .select(['NDWI', 'NDVI']))
+                elif m_anio >= 2013:
+                    sat_nombre = "Landsat 8 OLI (NASA/USGS, 30m)"
+                    sat_res = 30
+                    def calc_indices_l8(img):
+                        ndvi = img.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
+                        ndwi = img.normalizedDifference(['SR_B5', 'SR_B6']).rename('NDWI')
+                        return img.addBands([ndwi, ndvi])
+
+                    map_col = (ee.ImageCollection('LANDSAT/LC08/C02/T1_L2')
+                               .filterBounds(punto_map)
+                               .filterDate(f_ini, f_fin)
+                               .map(calc_indices_l8)
+                               .select(['NDWI', 'NDVI']))
+                else:
+                    sat_nombre = "Landsat 7 ETM+ (NASA/USGS, 30m)"
+                    sat_res = 30
+                    def calc_indices_l7(img):
+                        ndvi = img.normalizedDifference(['SR_B4', 'SR_B3']).rename('NDVI')
+                        ndwi = img.normalizedDifference(['SR_B4', 'SR_B5']).rename('NDWI')
+                        return img.addBands([ndwi, ndvi])
+
+                    map_col = (ee.ImageCollection('LANDSAT/LE07/C02/T1_L2')
+                               .filterBounds(punto_map)
+                               .filterDate(f_ini, f_fin)
+                               .map(calc_indices_l7)
+                               .select(['NDWI', 'NDVI']))
 
                 # Mediana del período
-                median_s2_img = s2_map_col.median()
+                median_s2_img = map_col.median()
 
                 # Extraer valores puntuales
                 val_dict = median_s2_img.reduceRegion(
                     reducer=ee.Reducer.mean(),
-                    geometry=punto_map.buffer(30),
-                    scale=10
+                    geometry=punto_map.buffer(sat_res),
+                    scale=sat_res
                 ).getInfo()
                 
                 ndvi_val = val_dict.get('NDVI') if val_dict else None
@@ -612,11 +641,11 @@ with tab_mapa:
                 rain_mm = (fldas_val.get('Rainf_f_tavg') * 86400 * 30.4) if fldas_val and fldas_val.get('Rainf_f_tavg') else 120.0
 
                 # Diagnóstico de semáforo
-                st.markdown("### 📊 Diagnóstico Automatizado de la Parcela")
+                st.markdown(f"### 📊 Diagnóstico Automatizado — {sat_nombre}")
                 c_d1, c_d2, c_d3, c_d4, c_d5 = st.columns(5)
                 
-                c_d1.metric("🌿 NDVI Verdor (10m)", f"{ndvi_val:.3f}" if ndvi_val is not None else "0.640 (Est.)", help="Biomasa y actividad fotosintética de las hojas")
-                c_d2.metric("💧 NDWI Agua (10m)", f"{ndwi_val:.3f}" if ndwi_val is not None else "0.280 (Est.)", help="Agua líquida en el follaje (estrés hídrico)")
+                c_d1.metric(f"🌿 NDVI Verdor ({sat_res}m)", f"{ndvi_val:.3f}" if ndvi_val is not None else "0.640 (Est.)", help=f"Biomasa y actividad fotosintética ({sat_nombre})")
+                c_d2.metric(f"💧 NDWI Agua ({sat_res}m)", f"{ndwi_val:.3f}" if ndwi_val is not None else "0.280 (Est.)", help=f"Agua líquida en el follaje ({sat_nombre})")
                 c_d3.metric("🌡️ Temp. Media", f"{t_c:.1f} °C", help="Temperatura del aire estimada por NASA FLDAS")
                 c_d4.metric("💧 Humedad Suelo", f"{sm_pct:.1f} %", help="Humedad en los primeros 10cm de suelo (NASA FLDAS)")
                 c_d5.metric("🌧️ Lluvia Media", f"{rain_mm:.0f} mm/m", help="Precipitación mensual estimada")
@@ -658,8 +687,8 @@ with tab_mapa:
 
                 folium.TileLayer(
                     tiles=tile_url_ndvi,
-                    attr='Sentinel-2 NDVI (ESA / Copernicus)',
-                    name='🌿 Verdor y Clorofila (NDVI a 10m)',
+                    attr=f'{sat_nombre} / GEE',
+                    name=f'🌿 Verdor y Clorofila (NDVI a {sat_res}m)',
                     overlay=True,
                     opacity=0.70,
                     show=show_ndvi
@@ -668,8 +697,8 @@ with tab_mapa:
                 # Capa NDWI
                 folium.TileLayer(
                     tiles=tile_url_ndwi,
-                    attr='Sentinel-2 NDWI (ESA / Copernicus)',
-                    name='💧 Estrés y Humedad Foliar (NDWI a 10m)',
+                    attr=f'{sat_nombre} / GEE',
+                    name=f'💧 Estrés y Humedad Foliar (NDWI a {sat_res}m)',
                     overlay=True,
                     opacity=0.70,
                     show=show_ndwi
@@ -684,12 +713,12 @@ with tab_mapa:
                     <h4 style="margin: 0 0 6px 0; color: #1b5e20;">📍 {parcela_preset}</h4>
                     <b>Lat:</b> {m_lat:.5f} | <b>Lon:</b> {m_lon:.5f}<br>
                     <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
-                    <b>🌿 NDVI (Verdor 10m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_str}</span><br>
-                    <b>💧 NDWI (Humedad 10m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_str}</span><br>
+                    <b>🌿 NDVI (Verdor {sat_res}m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_str}</span><br>
+                    <b>💧 NDWI (Humedad {sat_res}m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_str}</span><br>
                     <b>🌡️ Temp. Estimada:</b> {t_c:.1f} °C<br>
                     <b>💧 Hum. Suelo (0-10cm):</b> {sm_pct:.1f}%<br>
                     <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
-                    <small style="color: #666;">Fuente: Sentinel-2 (ESA) + FLDAS (NASA)</small>
+                    <small style="color: #666;">Fuente: {sat_nombre} + FLDAS (NASA)</small>
                 </div>
                 """
 
