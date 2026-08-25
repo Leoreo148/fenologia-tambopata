@@ -676,13 +676,16 @@ with tab_mapa:
                 ).add_to(m)
 
                 # Marcador con Globo de Información Completo en la Parcela
+                ndvi_str = f"{ndvi_val:.3f}" if ndvi_val is not None else "N/A"
+                ndwi_str = f"{ndwi_val:.3f}" if ndwi_val is not None else "N/A"
+
                 html_popup = f"""
                 <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; min-width: 200px;">
                     <h4 style="margin: 0 0 6px 0; color: #1b5e20;">📍 {parcela_preset}</h4>
                     <b>Lat:</b> {m_lat:.5f} | <b>Lon:</b> {m_lon:.5f}<br>
                     <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
-                    <b>🌿 NDVI (Verdor 10m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_val:.3f if ndvi_val else 'N/A'}</span><br>
-                    <b>💧 NDWI (Humedad 10m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_val:.3f if ndwi_val else 'N/A'}</span><br>
+                    <b>🌿 NDVI (Verdor 10m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_str}</span><br>
+                    <b>💧 NDWI (Humedad 10m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_str}</span><br>
                     <b>🌡️ Temp. Estimada:</b> {t_c:.1f} °C<br>
                     <b>💧 Hum. Suelo (0-10cm):</b> {sm_pct:.1f}%<br>
                     <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
