@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#1b4d3e",
+      "image": "./assets/splash.png",
+      "backgroundColor": "#0f382c",
       "resizeMode": "contain"
     },
     "assetBundlePatterns": [
@@ -19,7 +20,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1b4d3e"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f382c"
       },
       "package": "org.macawsociety.fenologia",
       "permissions": [
