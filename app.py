@@ -100,6 +100,16 @@ def load_data():
 
 df_original = load_data()
 
+@st.cache_data
+def load_censo():
+    try:
+        df_c = pd.read_csv('arboles_censo_colorado_1939.csv')
+    except Exception:
+        df_c = pd.DataFrame()
+    return df_c
+
+df_censo_master = load_censo()
+
 # ─────────────────────────────────────────────────────────────────────
 # SIDEBAR – FILTROS (Aplica a la fenología)
 # ─────────────────────────────────────────────────────────────────────
@@ -169,8 +179,9 @@ PARCELAS_RED = {
 # ─────────────────────────────────────────────────────────────────────
 # TABS PRINCIPALES
 # ─────────────────────────────────────────────────────────────────────
-tab_feno, tab_mapa, tab_clima = st.tabs([
+tab_feno, tab_censo, tab_mapa, tab_clima = st.tabs([
     "🌱 Fenología Forestal",
+    "📋 Censo de Árboles (1,939 TAGs)",
     "🗺️ Visor de Verdor y Estrés (10m)",
     "🛰️ Extractor Climático Satelital"
 ])
@@ -512,7 +523,101 @@ with tab_feno:
 
 
 # =====================================================================
-# TAB 2: VISOR DE VERDOR Y ESTRÉS HÍDRICO (SENTINEL-2 A 10M)
+# TAB 2: CENSO MAESTRO DE ÁRBOLES (1,939 ÁRBOLES EN 25 PARCELAS)
+# =====================================================================
+with tab_censo:
+    st.title("📋 Censo Maestro de Árboles y Especies — Red Colorado")
+    st.write("Catálogo oficial de **1,939 árboles individuales marcados con placa (TAG)** en las 25 parcelas georreferenciadas de Tambopata (Proyecto Macaw Society).")
+
+    if not df_censo_master.empty:
+        # Métricas generales del censo
+        c_c1, c_c2, c_c3, c_c4 = st.columns(4)
+        c_c1.metric("🌳 Total Árboles Marcados", f"{len(df_censo_master):,}")
+        c_c2.metric("🌿 Especies Botánicas", f"{df_censo_master['Nombre_cientifico_limpio'].nunique()}")
+        c_c3.metric("📍 Parcelas Monitoreadas", f"{df_censo_master['PLOP'].nunique()}")
+        c_c4.metric("🏷️ Géneros Identificados", f"{df_censo_master['GENERO'].nunique()}")
+
+        st.markdown("---")
+
+        # Filtros rápidos para el catálogo
+        f_col1, f_col2, f_col3 = st.columns([1.2, 1.2, 1.6])
+        with f_col1:
+            filtro_plop = st.multiselect(
+                "📍 Filtrar por Parcela:",
+                sorted(df_censo_master['PLOP'].dropna().unique().tolist()),
+                default=[]
+            )
+        with f_col2:
+            filtro_genero = st.multiselect(
+                "🔬 Filtrar por Género:",
+                sorted(df_censo_master['GENERO'].dropna().unique().tolist()),
+                default=[]
+            )
+        with f_col3:
+            busqueda_tag = st.text_input("🔍 Buscar por TAG (Placa) o Nombre:", "")
+
+        df_censo_filtrado = df_censo_master.copy()
+        if filtro_plop:
+            df_censo_filtrado = df_censo_filtrado[df_censo_filtrado['PLOP'].isin(filtro_plop)]
+        if filtro_genero:
+            df_censo_filtrado = df_censo_filtrado[df_censo_filtrado['GENERO'].isin(filtro_genero)]
+        if busqueda_tag:
+            df_censo_filtrado = df_censo_filtrado[
+                df_censo_filtrado['TAG'].astype(str).str.contains(busqueda_tag, case=False, na=False) |
+                df_censo_filtrado['Nombre_cientifico_limpio'].str.contains(busqueda_tag, case=False, na=False)
+            ]
+
+        # Gráficos del censo
+        cg1, cg2 = st.columns([1.4, 1.0])
+        with cg1:
+            top_sp = (df_censo_filtrado['Nombre_cientifico_limpio']
+                      .value_counts().head(12).reset_index())
+            top_sp.columns = ['Especie', 'Cantidad']
+            fig_sp = px.bar(
+                top_sp, x='Cantidad', y='Especie', orientation='h',
+                title="Top Especies más Representativas",
+                template='plotly_white', color='Cantidad',
+                color_continuous_scale='Greens'
+            )
+            fig_sp.update_layout(yaxis={'categoryorder': 'total ascending'}, height=360, showlegend=False)
+            st.plotly_chart(fig_sp, use_container_width=True)
+
+        with cg2:
+            arboles_plop = (df_censo_filtrado['PLOP']
+                            .value_counts().reset_index())
+            arboles_plop.columns = ['Parcela', 'Árboles']
+            fig_plop = px.bar(
+                arboles_plop, x='Parcela', y='Árboles',
+                title="Árboles por Parcela",
+                template='plotly_white', color='Árboles',
+                color_continuous_scale='Blues'
+            )
+            fig_plop.update_layout(height=360, showlegend=False)
+            st.plotly_chart(fig_plop, use_container_width=True)
+
+        # Tabla del censo
+        st.markdown(f"### 📑 Listado de Árboles ({len(df_censo_filtrado)} individuos)")
+        st.dataframe(
+            df_censo_filtrado[['PLOP', 'SUB', 'TAG', 'Nombre_cientifico_limpio', 'GENERO']],
+            use_container_width=True,
+            height=320
+        )
+
+        c_dwn1, c_dwn2 = st.columns([1, 2])
+        with c_dwn1:
+            csv_censo = df_censo_filtrado.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "📥 Descargar Catálogo Filtrado (CSV)",
+                csv_censo, "censo_arboles_tambopata.csv", "text/csv"
+            )
+        with c_dwn2:
+            st.info("💡 **Base para la App Móvil:** Este censo con 1,939 TAGs es la base precargada que usará el formulario en React Native para registrar flores, frutos y fotos en campo sin conexión.")
+    else:
+        st.warning("No se encontró el archivo del censo `arboles_censo_colorado_1939.csv`.")
+
+
+# =====================================================================
+# TAB 3: VISOR DE VERDOR Y ESTRÉS HÍDRICO (SENTINEL-2 A 10M)
 # =====================================================================
 with tab_mapa:
     st.title("🗺️ Visor de Verdor (NDVI) y Estrés Hídrico (NDWI) — 10 Metros")
