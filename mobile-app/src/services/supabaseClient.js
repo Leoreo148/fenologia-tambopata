@@ -2,9 +2,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { executeSql, querySql } from '../database/db';
 
-// Configuración de Supabase (URL y Anon Key)
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://tambopata-macaw.supabase.co';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_key';
+// Configuración de Supabase Oficial (The Macaw Society)
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://eidmtyounanssoxpzpqd.supabase.co';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY || 'sb_publishable_Ecc2NdqkACCq5QhZYKUeoA_6_jDaea7';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
