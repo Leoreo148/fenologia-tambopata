@@ -45,17 +45,17 @@ try:
         method="POST"
     )
     with urllib.request.urlopen(req) as resp:
-        print("✅ 25 Parcelas sincronizadas exitosamente en Supabase!")
+        print("[OK] 25 Parcelas sincronizadas exitosamente en Supabase!")
 except urllib.error.HTTPError as e:
-    print(f"⚠️ Error subiendo parcelas ({e.code}): {e.read().decode()}")
+    print(f"[WARN] Error subiendo parcelas ({e.code}): {e.read().decode()}")
 
 # 3. Subir Árboles en lotes de 200
 payload_arboles = []
 for a in arboles:
     payload_arboles.append({
         "plop": a["PLOP"],
-        "sub": a["SUB"],
-        "tag": a["TAG"] if a["TAG"] else 0,
+        "sub": str(a["SUB"]),
+        "tag": int(a["TAG"]) if a["TAG"] and str(a["TAG"]).isdigit() else 0,
         "nombre_cientifico": a["Nombre_cientifico_limpio"],
         "genero": a["GENERO"],
         "estado_vital": "Normal"
@@ -72,7 +72,7 @@ for i in range(0, len(payload_arboles), batch_size):
             method="POST"
         )
         with urllib.request.urlopen(req) as resp:
-            print(f"✅ Lote de árboles {i+1} a {min(i+batch_size, len(payload_arboles))} sincronizado.")
+            print(f"[OK] Lote de arboles {i+1} a {min(i+batch_size, len(payload_arboles))} sincronizado.")
     except urllib.error.HTTPError as e:
-        print(f"⚠️ Error subiendo lote {i} ({e.code}): {e.read().decode()}")
-        break
+        print(f"[WARN] Error subiendo lote {i} ({e.code}): {e.read().decode()}")
+

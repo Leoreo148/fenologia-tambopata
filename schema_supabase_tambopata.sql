@@ -26,18 +26,17 @@ CREATE TABLE arboles (
     id BIGSERIAL PRIMARY KEY,
     plop VARCHAR(10) REFERENCES parcelas(codigo) ON DELETE CASCADE,
     sub VARCHAR(10) NOT NULL,        -- Subparcela: 1a, 1b, 2a, etc.
-    tag INTEGER NOT NULL,            -- Placa metálica: 1001, 1002, 3421, etc.
+    tag INTEGER,                     -- Placa metálica: 1001, 1002, 3421, etc.
     nombre_cientifico VARCHAR(150) NOT NULL,
     genero VARCHAR(50) NOT NULL,
     estado_vital VARCHAR(30) DEFAULT 'Normal',
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(plop, sub, tag)
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 4. TABLA: EVALUACIONES_FENOLOGICAS (Registros mensuales de campo)
 CREATE TABLE evaluaciones_fenologicas (
     id VARCHAR(100) PRIMARY KEY,     -- UUID o Código compuesto ej: TF1_1001_2026-08-27
-    tag INTEGER NOT NULL,
+    tag INTEGER,
     plop VARCHAR(10) REFERENCES parcelas(codigo) ON DELETE CASCADE,
     sub VARCHAR(10) NOT NULL,
     nombre_cientifico VARCHAR(150),
@@ -56,19 +55,11 @@ CREATE TABLE evaluaciones_fenologicas (
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 5. HABILITAR PERMISOS PÚBLICOS (ROW LEVEL SECURITY PARA LA APP MÓVIL)
+-- 5. HABILITAR PERMISOS COMPLETOS (ROW LEVEL SECURITY PARA LA APP MÓVIL)
 ALTER TABLE parcelas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE arboles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evaluaciones_fenologicas ENABLE ROW LEVEL SECURITY;
 
--- Políticas de lectura pública para la app móvil
-CREATE POLICY "Permitir lectura publica de parcelas" ON parcelas FOR SELECT USING (true);
-CREATE POLICY "Permitir lectura publica de arboles" ON arboles FOR SELECT USING (true);
-CREATE POLICY "Permitir lectura publica de evaluaciones" ON evaluaciones_fenologicas FOR SELECT USING (true);
-
--- Políticas de inserción/actualización desde la app móvil
-CREATE POLICY "Permitir insercion de evaluaciones" ON evaluaciones_fenologicas FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir actualizacion de evaluaciones" ON evaluaciones_fenologicas FOR UPDATE USING (true);
-CREATE POLICY "Permitir insercion de arboles" ON arboles FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir actualizacion de arboles" ON arboles FOR UPDATE USING (true);
-CREATE POLICY "Permitir insercion de parcelas" ON parcelas FOR INSERT WITH CHECK (true);
+CREATE POLICY "Acceso total parcelas" ON parcelas FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total arboles" ON arboles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total evaluaciones" ON evaluaciones_fenologicas FOR ALL USING (true) WITH CHECK (true);
