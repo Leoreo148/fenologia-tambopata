@@ -135,6 +135,38 @@ metrica_col   = [k for k,v in FENOLOGIA_LABELS.items() if v == metrica_label][0]
 
 
 # ─────────────────────────────────────────────────────────────────────
+# BASE DE DATOS OFICIAL DE PARCELAS TAMBOPATA COLORADO (25 PARCELAS)
+# ─────────────────────────────────────────────────────────────────────
+PARCELAS_RED = {
+    "🌳 TF1 — Tierra Firme (276m)": {"cod": "TF1", "hab": "Bosque de Tierra Firme", "lat": -13.147022, "lon": -69.620717, "alt": 276.3, "color": "green", "icon": "tree"},
+    "🌳 TF2 — Tierra Firme (266m)": {"cod": "TF2", "hab": "Bosque de Tierra Firme", "lat": -13.143396, "lon": -69.622705, "alt": 266.0, "color": "green", "icon": "tree"},
+    "🌳 TF3 — Tierra Firme (271m)": {"cod": "TF3", "hab": "Bosque de Tierra Firme", "lat": -13.137652, "lon": -69.620782, "alt": 270.6, "color": "green", "icon": "tree"},
+    "🌳 TF4 — Tierra Firme (268m)": {"cod": "TF4", "hab": "Bosque de Tierra Firme", "lat": -13.136123, "lon": -69.619983, "alt": 267.9, "color": "green", "icon": "tree"},
+    "🌳 TF5 — Tierra Firme (303m)": {"cod": "TF5", "hab": "Bosque de Tierra Firme", "lat": -13.140597, "lon": -69.617934, "alt": 303.2, "color": "green", "icon": "tree"},
+    "🌴 AG1 — Aguajal (253m)": {"cod": "AG1", "hab": "Bosque de Aguajal", "lat": -13.138410, "lon": -69.613426, "alt": 253.0, "color": "blue", "icon": "tint"},
+    "🌴 AG2 — Aguajal (280m)": {"cod": "AG2", "hab": "Bosque de Aguajal", "lat": -13.136985, "lon": -69.618303, "alt": 280.0, "color": "blue", "icon": "tint"},
+    "🌴 AG3 — Aguajal (250m)": {"cod": "AG3", "hab": "Bosque de Aguajal", "lat": -13.138098, "lon": -69.613958, "alt": 250.0, "color": "blue", "icon": "tint"},
+    "🌴 AG4 — Aguajal (254m)": {"cod": "AG4", "hab": "Bosque de Aguajal", "lat": -13.134740, "lon": -69.618893, "alt": 254.0, "color": "blue", "icon": "tint"},
+    "🌴 AG5 — Aguajal (260m)": {"cod": "AG5", "hab": "Bosque de Aguajal", "lat": -13.134953, "lon": -69.618656, "alt": 260.0, "color": "blue", "icon": "tint"},
+    "🌴 AG6 — Aguajal (266m)": {"cod": "AG6", "hab": "Bosque de Aguajal", "lat": -13.138562, "lon": -69.613208, "alt": 265.9, "color": "blue", "icon": "tint"},
+    "🌴 AG7 — Aguajal (260m)": {"cod": "AG7", "hab": "Bosque de Aguajal", "lat": -13.138288, "lon": -69.613958, "alt": 260.0, "color": "blue", "icon": "tint"},
+    "🌴 AG8 — Aguajal (257m)": {"cod": "AG8", "hab": "Bosque de Aguajal", "lat": -13.135055, "lon": -69.618801, "alt": 257.0, "color": "blue", "icon": "tint"},
+    "🌴 AG9 — Aguajal (269m)": {"cod": "AG9", "hab": "Bosque de Aguajal", "lat": -13.136955, "lon": -69.618083, "alt": 268.8, "color": "blue", "icon": "tint"},
+    "🌊 FP1 — Bajío (243m)": {"cod": "FP1", "hab": "Bosque de Bajío", "lat": -13.132427, "lon": -69.606840, "alt": 242.7, "color": "cadetblue", "icon": "water"},
+    "🌊 FP2 — Bajío (258m)": {"cod": "FP2", "hab": "Bosque de Bajío", "lat": -13.133555, "lon": -69.610408, "alt": 257.6, "color": "cadetblue", "icon": "water"},
+    "🌊 FP3 — Bajío (259m)": {"cod": "FP3", "hab": "Bosque de Bajío", "lat": -13.133262, "lon": -69.614538, "alt": 258.8, "color": "cadetblue", "icon": "water"},
+    "🌊 FP4 — Bajío (257m)": {"cod": "FP4", "hab": "Bosque de Bajío", "lat": -13.129899, "lon": -69.616082, "alt": 257.0, "color": "cadetblue", "icon": "water"},
+    "🌊 FP6 — Bajío (246m)": {"cod": "FP6", "hab": "Bosque de Bajío", "lat": -13.130647, "lon": -69.611740, "alt": 245.7, "color": "cadetblue", "icon": "water"},
+    "🌿 BS1 — Sucesional (261m)": {"cod": "BS1", "hab": "Bosque Sucesional", "lat": -12.693745, "lon": -69.603175, "alt": 260.9, "color": "orange", "icon": "leaf"},
+    "🌿 BS2 — Sucesional (286m)": {"cod": "BS2", "hab": "Bosque Sucesional", "lat": -13.143058, "lon": -69.602035, "alt": 286.0, "color": "orange", "icon": "leaf"},
+    "🌿 BS3 — Sucesional (242m)": {"cod": "BS3", "hab": "Bosque Sucesional", "lat": -13.141842, "lon": -69.600008, "alt": 241.8, "color": "orange", "icon": "leaf"},
+    "🌿 BS4 — Sucesional (270m)": {"cod": "BS4", "hab": "Bosque Sucesional", "lat": -13.149407, "lon": -69.613915, "alt": 270.0, "color": "orange", "icon": "leaf"},
+    "🌿 BS6 — Sucesional (244m)": {"cod": "BS6", "hab": "Bosque Sucesional", "lat": -13.141767, "lon": -69.599470, "alt": 243.7, "color": "orange", "icon": "leaf"},
+    "🌿 BS7 — Sucesional (268m)": {"cod": "BS7", "hab": "Bosque Sucesional", "lat": -13.146656, "lon": -69.613798, "alt": 267.7, "color": "orange", "icon": "leaf"},
+    "📍 Coordenadas Personalizadas": {"cod": "CUSTOM", "hab": "Personalizado", "lat": -13.147022, "lon": -69.620717, "alt": 276.3, "color": "purple", "icon": "map-pin"}
+}
+
+# ─────────────────────────────────────────────────────────────────────
 # TABS PRINCIPALES
 # ─────────────────────────────────────────────────────────────────────
 tab_feno, tab_mapa, tab_clima = st.tabs([
@@ -511,23 +543,16 @@ with tab_mapa:
             * **Escala:** >0.35 = Hidratado; <0.22 = Estrés hídrico severo.
             """)
 
-    col_m1, col_m2, col_m3 = st.columns([1.2, 1.2, 1.6])
+    col_m1, col_m2, col_m3 = st.columns([1.3, 1.1, 1.6])
     with col_m1:
         parcela_preset = st.selectbox(
-            "📍 Parcela rápida:",
-            ["TF1 (Tierra Firme 1)", "TF2 (Tierra Firme 2)", "TF3 (Tierra Firme 3)", "Colpa Colorado", "Personalizada"],
-            help="Selecciona una de las parcelas marcadas del estudio o ingresa coordenadas libres."
+            "📍 Parcela de la Red Colorado (25 parcelas):",
+            list(PARCELAS_RED.keys()),
+            help="Selecciona una de las 25 parcelas georreferenciadas del proyecto Macaw Society en Tambopata."
         )
-        presets_coord = {
-            "TF1 (Tierra Firme 1)": (-12.8300, -69.2900),
-            "TF2 (Tierra Firme 2)": (-12.8350, -69.2850),
-            "TF3 (Tierra Firme 3)": (-12.8250, -69.2950),
-            "Colpa Colorado": (-12.8100, -69.2800),
-            "Personalizada": (-12.8300, -69.2900)
-        }
-        default_lat, default_lon = presets_coord[parcela_preset]
-        m_lat = st.number_input("Latitud", value=default_lat, format="%.5f", key="map_lat")
-        m_lon = st.number_input("Longitud", value=default_lon, format="%.5f", key="map_lon")
+        info_p = PARCELAS_RED[parcela_preset]
+        m_lat = st.number_input("Latitud", value=info_p["lat"], format="%.6f", key="map_lat")
+        m_lon = st.number_input("Longitud", value=info_p["lon"], format="%.6f", key="map_lon")
 
     with col_m2:
         m_anio = st.selectbox("📅 Año de Observación:", list(range(2026, 2009, -1)), index=2, help="Disponible desde 2010 hasta 2026.")
@@ -553,9 +578,9 @@ with tab_mapa:
             horizontal=True,
             help="Puedes alternar o prender ambas capas desde el control de capas del mapa."
         )
-        st.markdown("""
+        st.markdown(f"""
+        * 🏷️ **Hábitat:** `{info_p['hab']}` · **Altitud:** `{info_p['alt']} msnm`
         * 🟢 **Verde Oscuro:** Vegetación densa / Dosel hidratado
-        * 🟡 **Amarillo / Claro:** Estado normal / Transición
         * 🔴 **Rojo / Pardo:** Estrés hídrico severo / Defoliación
         """)
 
@@ -641,7 +666,7 @@ with tab_mapa:
                 rain_mm = (fldas_val.get('Rainf_f_tavg') * 86400 * 30.4) if fldas_val and fldas_val.get('Rainf_f_tavg') else 120.0
 
                 # Diagnóstico de semáforo
-                st.markdown(f"### 📊 Diagnóstico Automatizado — {sat_nombre}")
+                st.markdown(f"### 📊 Diagnóstico Automatizado — Parcela {info_p['cod']} ({info_p['hab']})")
                 c_d1, c_d2, c_d3, c_d4, c_d5 = st.columns(5)
                 
                 c_d1.metric(f"🌿 NDVI Verdor ({sat_res}m)", f"{ndvi_val:.3f}" if ndvi_val is not None else "0.640 (Est.)", help=f"Biomasa y actividad fotosintética ({sat_nombre})")
@@ -653,13 +678,13 @@ with tab_mapa:
                 # Estado del semáforo interpretativo
                 ndwi_check = ndwi_val if ndwi_val is not None else 0.28
                 if ndwi_check >= 0.35:
-                    st.success("🟢 **DOSEL ÓPTIMO E HIDRATADO:** Las copas de los árboles presentan máxima turgencia foliar (NDWI > 0.35). Condición favorable para crecimiento vegetativo.")
+                    st.success(f"🟢 **DOSEL ÓPTIMO E HIDRATADO EN {info_p['cod']}:** Las copas de los árboles en {info_p['hab']} presentan máxima turgencia foliar (NDWI > 0.35). Condición favorable para crecimiento vegetativo.")
                 elif ndwi_check >= 0.28:
-                    st.info("🟡 **CONDICIÓN NORMAL / TRANSICIÓN:** Hidratación foliar en niveles estándar (NDWI 0.28–0.35).")
+                    st.info(f"🟡 **CONDICIÓN NORMAL / TRANSICIÓN EN {info_p['cod']}:** Hidratación foliar en niveles estándar (NDWI 0.28–0.35).")
                 elif ndwi_check >= 0.22:
-                    st.warning("🟠 **ALERTA DE ESTRÉS HÍDRICO MODERADO:** El dosel está perdiendo agua por la temporada seca (NDWI 0.22–0.28). Momento de inducción de floración en varias especies.")
+                    st.warning(f"🟠 **ALERTA DE ESTRÉS HÍDRICO MODERADO EN {info_p['cod']}:** El dosel está perdiendo agua por la temporada seca (NDWI 0.22–0.28). Momento de inducción floral.")
                 else:
-                    st.error("🔴 **ESTRÉS HÍDRICO SEVERO:** El follaje ha alcanzado el punto crítico de sequedad (NDWI < 0.22). Disparador ecológico de maduración y caída masiva de frutos.")
+                    st.error(f"🔴 **ESTRÉS HÍDRICO SEVERO EN {info_p['cod']}:** El follaje ha alcanzado el punto crítico de sequedad (NDWI < 0.22). Disparador ecológico de maduración y caída de frutos.")
 
                 # Generar capas de mapa en Folium
                 vis_ndwi = {
@@ -676,7 +701,7 @@ with tab_mapa:
 
                 m = folium.Map(
                     location=[m_lat, m_lon],
-                    zoom_start=14,
+                    zoom_start=15,
                     tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
                     attr='Google Satellite'
                 )
@@ -704,14 +729,45 @@ with tab_mapa:
                     show=show_ndwi
                 ).add_to(m)
 
-                # Marcador con Globo de Información Completo en la Parcela
+                # Capa con todas las 25 parcelas de la red
+                fg_red = folium.FeatureGroup(name='📍 Red de 25 Parcelas Colorado', show=True)
+                for p_name, p_data in PARCELAS_RED.items():
+                    if p_data["cod"] == "CUSTOM":
+                        continue
+                    is_active = (p_data["cod"] == info_p["cod"])
+                    
+                    p_html = f"""
+                    <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4; min-width: 170px;">
+                        <h4 style="margin:0 0 4px 0; color:#1b5e20;">📍 Parcela {p_data['cod']}</h4>
+                        <b>Hábitat:</b> {p_data['hab']}<br>
+                        <b>Altitud:</b> {p_data['alt']} msnm<br>
+                        <b>Lat:</b> {p_data['lat']:.5f}<br>
+                        <b>Lon:</b> {p_data['lon']:.5f}
+                    </div>
+                    """
+                    folium.Marker(
+                        [p_data["lat"], p_data["lon"]],
+                        popup=folium.Popup(p_html, max_width=250),
+                        tooltip=f"Parcela {p_data['cod']} ({p_data['hab']})",
+                        icon=folium.Icon(
+                            color='red' if is_active else p_data["color"],
+                            icon='star' if is_active else p_data["icon"],
+                            prefix='fa'
+                        )
+                    ).add_to(fg_red)
+                
+                fg_red.add_to(m)
+
+                # Marcador con Globo de Información Completo en la Parcela Activa
                 ndvi_str = f"{ndvi_val:.3f}" if ndvi_val is not None else "N/A"
                 ndwi_str = f"{ndwi_val:.3f}" if ndwi_val is not None else "N/A"
 
                 html_popup = f"""
-                <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; min-width: 200px;">
-                    <h4 style="margin: 0 0 6px 0; color: #1b5e20;">📍 {parcela_preset}</h4>
-                    <b>Lat:</b> {m_lat:.5f} | <b>Lon:</b> {m_lon:.5f}<br>
+                <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; min-width: 210px;">
+                    <h4 style="margin: 0 0 6px 0; color: #1b5e20;">📍 Parcela Activa: {info_p['cod']}</h4>
+                    <b>Hábitat:</b> {info_p['hab']}<br>
+                    <b>Altitud:</b> {info_p['alt']} msnm<br>
+                    <b>Lat:</b> {m_lat:.6f} | <b>Lon:</b> {m_lon:.6f}<br>
                     <hr style="margin: 6px 0; border: 0; border-top: 1px solid #ddd;">
                     <b>🌿 NDVI (Verdor {sat_res}m):</b> <span style="color:#2e7d32; font-weight:bold;">{ndvi_str}</span><br>
                     <b>💧 NDWI (Humedad {sat_res}m):</b> <span style="color:#1565c0; font-weight:bold;">{ndwi_str}</span><br>
@@ -725,13 +781,13 @@ with tab_mapa:
                 folium.Marker(
                     [m_lat, m_lon],
                     popup=folium.Popup(html_popup, max_width=300),
-                    tooltip=f"🔍 Clic para ver datos de {parcela_preset}",
-                    icon=folium.Icon(color='green' if ndwi_check >= 0.28 else 'red', icon='leaf', prefix='fa')
+                    tooltip=f"🔍 Parcela Activa {info_p['cod']}",
+                    icon=folium.Icon(color='red', icon='star', prefix='fa')
                 ).add_to(m)
 
                 folium.LayerControl(position='topright').add_to(m)
 
-                components.html(m._repr_html_(), height=540)
+                components.html(m._repr_html_(), height=550)
 
             except Exception as e_map:
                 st.error(f"Error generando el visor satelital: {e_map}")
@@ -751,10 +807,16 @@ with tab_clima:
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            in_lat = st.number_input("📍 Latitud", value=-12.83, format="%.5f")
-            in_lon = st.number_input("📍 Longitud", value=-69.29, format="%.5f")
+            ext_parcela = st.selectbox(
+                "📍 Parcela rápida (Red Colorado):",
+                list(PARCELAS_RED.keys()),
+                key="ext_parcela_sel"
+            )
+            ext_info = PARCELAS_RED[ext_parcela]
+            in_lat = st.number_input("📍 Latitud", value=ext_info["lat"], format="%.6f", key="ext_lat")
+            in_lon = st.number_input("📍 Longitud", value=ext_info["lon"], format="%.6f", key="ext_lon")
         with col2:
-            in_start = st.date_input("Fecha Inicio", datetime.date(2025, 1, 1))
+            in_start = st.date_input("Fecha Inicio", datetime.date(2015, 1, 1))
             in_end = st.date_input("Fecha Fin", datetime.date(2025, 12, 31))
         with col3:
             fuente = st.radio("📡 Fuente de Datos", [
