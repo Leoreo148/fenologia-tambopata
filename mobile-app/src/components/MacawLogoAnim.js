@@ -1,6 +1,6 @@
 // Animated Macaw Society Logo with flying macaws
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -55,7 +55,7 @@ export const MacawLogoAnim = ({ onAnimationComplete }) => {
         }),
       ]),
       // 3. Pausa breve y salida
-      Animated.delay(400),
+      Animated.delay(500),
       Animated.timing(fadeOut, {
         toValue: 0,
         duration: 500,
@@ -85,11 +85,9 @@ export const MacawLogoAnim = ({ onAnimationComplete }) => {
       >
         <Svg width="70" height="70" viewBox="0 0 100 100">
           <G>
-            {/* Cuerpo y alas rojas / amarillas / azules */}
             <Path d="M10 50 Q30 20 60 40 T90 50 Q70 70 40 60 Z" fill="#e74c3c" />
             <Path d="M25 45 Q45 25 65 40 T85 45" fill="#f1c40f" />
             <Path d="M40 50 Q60 30 75 45 T85 50" fill="#2980b9" />
-            {/* Cola larga escarlata */}
             <Path d="M15 50 Q5 75 0 95 Q10 80 25 55 Z" fill="#c0392b" />
             <Circle cx="80" cy="42" r="3" fill="#ffffff" />
             <Circle cx="81" cy="42" r="1.5" fill="#000000" />
@@ -98,12 +96,14 @@ export const MacawLogoAnim = ({ onAnimationComplete }) => {
         </Svg>
       </Animated.View>
 
-      {/* Isotipo Central de The Macaw Society */}
+      {/* Isotipo Oficial Central de The Macaw Society */}
       <Animated.View style={[styles.centerLogo, { transform: [{ scale: logoScale }] }]}>
-        <View style={styles.badgeCircle}>
-          <Text style={styles.badgeEmoji}>🦜</Text>
-        </View>
-        <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
+        <Image
+          source={require('../../assets/macaw_logo_real.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Animated.View style={{ opacity: textOpacity, alignItems: 'center', marginTop: 15 }}>
           <Text style={styles.brandTitle}>THE MACAW SOCIETY</Text>
           <Text style={styles.brandSubtitle}>Fenología Tambopata · 2026</Text>
           <View style={styles.divider} />
@@ -142,37 +142,27 @@ export const MacawLogoAnim = ({ onAnimationComplete }) => {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0d2b1d', // Verde selva profundo
+    backgroundColor: '#082b23', // Verde bosque oficial Macaw Society
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   macawWrapper: {
     position: 'absolute',
-    top: '38%',
+    top: '35%',
   },
   centerLogo: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: '#1b5e20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 3,
-    borderColor: '#4caf50',
+  logoImage: {
+    width: 170,
+    height: 170,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  badgeEmoji: {
-    fontSize: 54,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
   },
   brandTitle: {
     color: '#ffffff',

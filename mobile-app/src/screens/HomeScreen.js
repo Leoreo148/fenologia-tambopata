@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { WeatherCard } from '../components/WeatherCard';
 import { getPronosticoRegional } from '../services/weatherService';
@@ -41,13 +42,18 @@ export const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f382c" />
+      <StatusBar barStyle="light-content" backgroundColor="#082b23" />
       
-      {/* Header Principal */}
+      {/* Header Principal con Logo Oficial */}
       <View style={styles.header}>
-        <View>
+        <Image
+          source={require('../../assets/macaw_logo_real.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+        <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>THE MACAW SOCIETY</Text>
-          <Text style={styles.headerSubtitle}>Fenología Tambopata · Campaña 10 Días</Text>
+          <Text style={styles.headerSubtitle}>Fenología Tambopata · 10 Días</Text>
         </View>
         <View style={styles.badgeOnline}>
           <Text style={styles.badgeText}>OFFLINE OK</Text>
@@ -145,21 +151,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   header: {
-    backgroundColor: '#0f382c',
-    paddingHorizontal: 16,
-    paddingVertical: 18,
+    backgroundColor: '#082b23',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLogo: {
+    width: 44,
+    height: 44,
+    marginRight: 10,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 1,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#81c784',
     marginTop: 2,
   },
